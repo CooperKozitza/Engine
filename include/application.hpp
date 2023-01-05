@@ -13,6 +13,7 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <memory>
 
 #include "buffers.hpp"
 #include "device.hpp"
@@ -24,6 +25,7 @@
 #include "surface.hpp"
 #include "swap_chain.hpp"
 #include "window.hpp"
+#include "vertex.hpp"
 
 namespace eng {
 class renderer;
@@ -32,7 +34,7 @@ constexpr uint32_t DESCRIPTOR_POOL_OVERALLOCATION = 10;
 
 class application {
 public:
-  static application &create(const glm::uvec2 &res, const char *title);
+  static application &create(const glm::uvec2 &res, const char *title, bool fullscreen = false);
   static application &get() { return app; }
 
   application(const application &) = delete;

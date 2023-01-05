@@ -2,6 +2,7 @@
 
 #include <map>
 #include <optional>
+#include <memory>
 #include <set>
 
 #include "instance.hpp"
@@ -55,7 +56,7 @@ public:
                             VkMemoryPropertyFlags properties);
 
   void create_buffer(buffer_create_options &opts);
-  void copy_buffer(VkCommandPool pool, VkBuffer src, VkBuffer dst,
+  void copy_buffer(command_pool &pool, VkBuffer src, VkBuffer dst,
                    VkDeviceSize size);
 
 private:

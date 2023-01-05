@@ -45,6 +45,46 @@ void eng::command_pool::create_command_buffers(device &dev, uint32_t count) {
   }
 }
 
+VkCommandBuffer eng::command_pool::start_one_time_command(device &dev) {
+  m_device = dev.get_device();
+
+  VkCommandBufferAllocateInfo alloc_info{};
+  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  alloc_info.commandPool = m_command_pool;
+  alloc_info.commandBufferCount = 1;
+
+  VkCommandBuffer command_buffer;
+  vkAllocateCommandBuffers(m_device, &alloc_info, &command_buffer);
+
+  VkCommandBufferBeginInfo begin_info{};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  vkBeginCommandBuffer(command_buffer, &begin_info);
+
+  return command_buffer;
+}
+
+void eng::command_pool::end_one_time_command(device &dev,
+                                             VkCommandBuffer command_buffer) {
+  m_device = dev.get_device();
+
+  vkEndCommandBuffer(command_buffer);
+
+  VkSubmitInfo submitInfo{};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &command_buffer;
+
+  VkQueue graphics_queue = dev.get_graphics_queue();
+
+  vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
+  vkQueueWaitIdle(graphics_queue);
+
+  vkFreeCommandBuffers(m_device, m_command_pool, 1, &command_buffer);
+}
+
 eng::vertex_buffer::vertex_buffer()
     : m_index_buffer_size(), m_vertex_buffer_size(), m_device(VK_NULL_HANDLE),
       m_vertex_buffer(VK_NULL_HANDLE), m_index_buffer(VK_NULL_HANDLE),

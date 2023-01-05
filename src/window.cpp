@@ -2,12 +2,12 @@
 
 #include <iostream>
 
-eng::window::window() : m_window(nullptr) { 
-    glfwInit(); 
-    glfwSetErrorCallback([](int code, const char *description) {
-      std::cerr << "A GLFW Error Occured (Error: " << code << ')' << std::endl;
-      std::cerr << "- " << description << std::endl;
-    });
+eng::window::window() : m_window(nullptr) {
+  glfwInit();
+  glfwSetErrorCallback([](int code, const char *description) {
+    std::cerr << "A GLFW Error Occured (Error: " << code << ')' << std::endl;
+    std::cerr << "- " << description << std::endl;
+  });
 }
 
 eng::window::~window() {
@@ -15,17 +15,33 @@ eng::window::~window() {
   glfwTerminate();
 }
 
-eng::window::window(const glm::uvec2 &res, const char *title)
+eng::window::window(glm::uvec2 &res, const char *title, bool fullscreen)
     : window() {
-  initialize_rendering(res, title);
+  if (fullscreen) {
+    GLFWmonitor *fullscreen_monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode *mode = glfwGetVideoMode(fullscreen_monitor);
+
+    res.x = mode->width;
+    res.y = mode->height;
+  }
+
+  initialize_rendering(res, title, fullscreen);
 }
 
-eng::window::window(const eng::window_details &details)
-    : window() {
-  initialize_rendering(details.resolution, details.title);
+eng::window::window(eng::window_details &details) : window() {
+  if (details.fullscreen) {
+    GLFWmonitor *fullscreen_monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode *mode = glfwGetVideoMode(fullscreen_monitor);
+
+    details.resolution.x = mode->width;
+    details.resolution.y = mode->height;
+  }
+
+  initialize_rendering(details.resolution, details.title, details.fullscreen);
 }
 
-void eng::window::initialize_rendering(const glm::uvec2 &res, const char *title) {
+void eng::window::initialize_rendering(const glm::uvec2 &res, const char *title,
+                                       bool fullscreen) {
   if (m_window) {
     glfwDestroyWindow(m_window);
   }
@@ -36,5 +52,6 @@ void eng::window::initialize_rendering(const glm::uvec2 &res, const char *title)
   // make window not resizable
   // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-  m_window = glfwCreateWindow(res.x, res.y, title, nullptr, nullptr);
+  GLFWmonitor *fullscreen_monitor = fullscreen ? glfwGetPrimaryMonitor() : nullptr;
+  m_window = glfwCreateWindow(res.x, res.y, title, fullscreen_monitor, nullptr);
 }

@@ -1,4 +1,5 @@
 #include "../include/device.hpp"
+#include "../include/buffers.hpp"
 
 eng::device::device()
     : m_instance(VK_NULL_HANDLE), m_surface(VK_NULL_HANDLE),
@@ -189,41 +190,16 @@ void eng::device::create_buffer(buffer_create_options &opts) {
   vkBindBufferMemory(m_device, *(opts.buffer), *(opts.buffer_memory), 0);
 }
 
-void eng::device::copy_buffer(VkCommandPool pool, VkBuffer src, VkBuffer dst,
-                              VkDeviceSize size) {
-  VkCommandBufferAllocateInfo alloc_info{};
-  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  alloc_info.commandPool = pool;
-  alloc_info.commandBufferCount = 1;
-
-  VkCommandBuffer command_buffer;
-  vkAllocateCommandBuffers(m_device, &alloc_info, &command_buffer);
-
-  VkCommandBufferBeginInfo begin_info{};
-  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-  vkBeginCommandBuffer(command_buffer, &begin_info);
+void eng::device::copy_buffer(command_pool &cmd_pool, VkBuffer src,
+                              VkBuffer dst, VkDeviceSize size) {
+  VkCommandBuffer command_buffer = cmd_pool.start_one_time_command(*this);
 
   VkBufferCopy copy_region{};
-  copy_region.srcOffset = 0;
-  copy_region.dstOffset = 0;
   copy_region.size = size;
 
   vkCmdCopyBuffer(command_buffer, src, dst, 1, &copy_region);
 
-  vkEndCommandBuffer(command_buffer);
-
-  VkSubmitInfo submit_info{};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &command_buffer;
-
-  vkQueueSubmit(get_graphics_queue(), 1, &submit_info, VK_NULL_HANDLE);
-  vkQueueWaitIdle(get_graphics_queue());
-
-  vkFreeCommandBuffers(m_device, pool, 1, &command_buffer);
+  cmd_pool.end_one_time_command(*this, command_buffer);
 }
 
 eng::swap_chain_support_details

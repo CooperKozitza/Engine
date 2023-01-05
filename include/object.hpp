@@ -5,6 +5,13 @@
 #include "buffers.hpp"
 
 namespace eng {
+class component {
+public:
+  virtual ~component() = default;
+
+  
+};
+
 class object {
 public:
   object();
@@ -18,7 +25,7 @@ public:
 
   void set_position(glm::vec3 position);
   glm::vec3 get_position() const { return m_position; }
-  
+
   void set_rotation(glm::vec3 rotation);
   glm::vec3 get_rotation() const { return m_rotation; }
 

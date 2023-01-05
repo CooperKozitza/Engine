@@ -32,6 +32,9 @@ public:
 
   VkCommandPool get_pool() { return m_command_pool; };
 
+  VkCommandBuffer start_one_time_command(device &dev);
+  void end_one_time_command(device &dev, VkCommandBuffer command_buffer);
+
 private:
   VkDevice m_device;
 

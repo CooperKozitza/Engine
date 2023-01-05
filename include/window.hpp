@@ -7,12 +7,14 @@
 
 namespace eng {
 struct window_details {
-  window_details() : resolution(), title("") {}
-  window_details(const glm::uvec2 &res, const char *title)
-      : resolution(res), title(title) {}
+  window_details() : resolution(), title(""), fullscreen() {}
+  window_details(const glm::uvec2 &res, const char *title,
+                 bool fullscreen = false)
+      : resolution(res), title(title), fullscreen(fullscreen) {}
 
   const char *title;
   glm::uvec2 resolution;
+  bool fullscreen;
 };
 
 class window {
@@ -25,13 +27,13 @@ public:
   /// </summary>
   /// <param name="res">The size of the window</param>
   /// <param name="title">The title of the window</param>
-  window(const glm::uvec2 &res, const char *title);
-  window(const window_details &details);
+  window(glm::uvec2 &res, const char *title, bool fullscreen = false);
+  window(window_details &details);
 
   window(const window &) = delete;
   const window &operator=(const window &) = delete;
 
-  void initialize_rendering(const glm::uvec2 &res, const char *title);
+  void initialize_rendering(const glm::uvec2 &res, const char *title, bool fullscreen = false);
 
   /// <summary>
   /// Checks for events like key-strokes or pressing the close button

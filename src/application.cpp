@@ -5,11 +5,12 @@ eng::application eng::application::app;
 std::mutex eng::application::creation_mutex;
 
 eng::application &eng::application::create(const glm::uvec2 &res,
-                                           const char *title) {
+                                           const char *title, bool fullscreen) {
   std::lock_guard<std::mutex> guard(creation_mutex);
   app.m_name = title;
   app.m_window_details.title = title;
   app.m_window_details.resolution = res;
+  app.m_window_details.fullscreen = fullscreen;
 
   app.initialize_rendering();
 
@@ -25,14 +26,12 @@ void eng::application::initialize_rendering() {
 }
 
 eng::application::~application() {
-  if (m_is_running || m_renderer->is_rendering()) {
+  if (is_running()) {
     stop();
     m_renderer->stop_rendering();
   }
 
   m_renderer.reset();
-
-  m_objects.clear();
 }
 
 void eng::application::add_shader(const char *file_path, shader_type type) {
@@ -67,6 +66,10 @@ void eng::application::start() {
 
         std::this_thread::sleep_for(sleep_time);
       }
+
+      now = std::chrono::high_resolution_clock::now();
+      m_delta_time = now - m_last_update_end;
+      m_last_update_end = now;
     }
 
     m_is_running = false;

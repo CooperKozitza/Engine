@@ -8,7 +8,7 @@
 
 namespace eng {
 struct vertex {
-  glm::vec2 pos;
+  glm::vec3 pos;
   glm::vec3 color;
 
   static VkVertexInputBindingDescription get_binding_properties() {
@@ -24,7 +24,7 @@ struct vertex {
     std::array<VkVertexInputAttributeDescription, 2> attribute_description{};
     attribute_description[0].binding = 0;
     attribute_description[0].location = 0;
-    attribute_description[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attribute_description[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     attribute_description[0].offset = offsetof(vertex, pos);
 
     attribute_description[1].binding = 0;

@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <vector>
+#include <cstring>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
