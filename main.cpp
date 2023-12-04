@@ -1,11 +1,13 @@
-#include "window.hpp"
+#include "application.hpp"
 
 int main() {
-  eng::window *win = new eng::window({800, 600}, "Test");
+  eng::application *app = eng::application::create({800, 600}, "Test!");
 
-  while (!win->should_close()) {
-    win->poll_events();
+  app->start();
+  while (app->is_running()) {
+  
   }
+  app->stop();
 
-  delete win;
+  delete app;
 }

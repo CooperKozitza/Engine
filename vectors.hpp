@@ -1,3 +1,5 @@
+#pragma once
+
 namespace eng {
     template <typename T> struct vec2 {
         T x, y;

@@ -1,6 +1,14 @@
 #include "window.hpp"
 
-eng::window::window() : glfw_window(nullptr) { glfwInit(); }
+#include <iostream>
+
+eng::window::window() : glfw_window(nullptr) { 
+    glfwInit(); 
+    glfwSetErrorCallback([](int code, const char *description) {
+      std::cerr << "A GLFW Error Occured (Error: " << code << ')' << std::endl;
+      std::cerr << "- " << description << std::endl;
+    });
+}
 
 eng::window::~window() {
   glfwDestroyWindow(glfw_window);
@@ -23,5 +31,4 @@ void eng::window::initialize(const vec2<unsigned int> &res, const char *title) {
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
   glfw_window = glfwCreateWindow(res.x, res.y, title, nullptr, nullptr);
-  m_is_open = true;
 }

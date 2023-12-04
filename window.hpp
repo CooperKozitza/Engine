@@ -1,6 +1,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#pragma once
+
 #include "vectors.hpp"
 
 namespace eng {
@@ -28,8 +30,9 @@ public:
   void poll_events() { glfwPollEvents(); }
   bool should_close() { return glfwWindowShouldClose(glfw_window); }
 
+  GLFWwindow *get_glfw_window() { return glfw_window; }
+
 private:
-  bool m_is_open;
   GLFWwindow *glfw_window;
 };
 } // namespace eng
