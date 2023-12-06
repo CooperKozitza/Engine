@@ -20,6 +20,11 @@ eng::window::window(const vec2<unsigned int> &res, const char *title)
   initialize(res, title);
 }
 
+eng::window::window(const eng::window_details &details)
+    : window() {
+  initialize(details.resolution, details.title);
+}
+
 void eng::window::initialize(const vec2<unsigned int> &res, const char *title) {
   if (glfw_window) {
     glfwDestroyWindow(glfw_window);
