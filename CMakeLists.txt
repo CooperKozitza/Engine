@@ -43,6 +43,24 @@ if(MSVC)
     )
 endif()
 
+if(GCC)
+    # Debug configuration
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Debug>:/W3 /D_DEBUG /D_CONSOLE>
+    )
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Debug>:_DEBUG>
+    )
+
+    # Release configuration
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Release>:/O2 /W3 /DNDEBUG /D_CONSOLE>
+    )
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Release>:NDEBUG>
+    )
+endif()
+
 # Link libraries
 # Note: Update these library paths as per your project setup
 target_link_libraries(${PROJECT_NAME}
@@ -51,6 +69,9 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # Set the runtime output directory (optional)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+	CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/obj
+)
 set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin
 )

@@ -195,6 +195,14 @@ private:
   void create_swap_chain();
 
   /// <summary>
+  /// Initialized each of the image views for each of the images in the swap
+  /// chain
+  /// </summary>
+  void create_image_views();
+
+  void create_graphics_pipeline();
+
+  /// <summary>
   /// Validation layer callback function
   /// </summary>
   /// <param name="message_severity">The severity of the debug message</param>
@@ -229,15 +237,21 @@ private:
   window *win;
 
   VkInstance instance;
+
   VkPhysicalDevice physical_device;
   VkDevice device;
+
   VkSurfaceKHR surface;
+
   VkDebugUtilsMessengerEXT debug_messenger;
+
   VkQueue graphics_queue;
   VkQueue present_queue;
+
   VkSwapchainKHR swap_chain;
   std::vector<VkImage> swap_chain_images;
   VkFormat swap_chain_image_format;
   VkExtent2D swap_chain_extent;
+  std::vector<VkImageView> swap_chain_image_views;
 };
 } // namespace eng
