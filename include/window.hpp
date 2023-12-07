@@ -38,7 +38,7 @@ public:
   void poll_events() { glfwPollEvents(); }
   bool should_close() { return glfwWindowShouldClose(glfw_window); }
 
-  GLFWwindow *get_glfw_window() { return glfw_window; }
+  GLFWwindow *get() { return glfw_window; }
 
 private:
   GLFWwindow *glfw_window;
