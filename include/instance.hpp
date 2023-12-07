@@ -8,7 +8,6 @@
 
 #include <vulkan/vulkan.h>
 
-
 namespace eng {
 #ifndef _DEBUG
 constexpr bool ENABLE_VALIDATION_LAYERS = false;
@@ -16,8 +15,16 @@ constexpr bool ENABLE_VALIDATION_LAYERS = false;
 constexpr bool ENABLE_VALIDATION_LAYERS = true;
 #endif // !_DEBUG
 
-extern std::vector<const char *> VALIDATION_LAYERS;
-extern std::vector<const char *> REQUIRED_DEVICE_EXTENTIONS;
+/// <summary>
+/// The enabled validation layers
+/// </summary>
+extern const std::vector<const char *> VALIDATION_LAYERS;
+
+/// <summary>
+/// These extentions are required for the functionality of the application, and
+/// therefore are required to exist on any suitable device
+/// </summary>
+extern const std::vector<const char *> REQUIRED_DEVICE_EXTENTIONS;
 
 class instance {
 public:

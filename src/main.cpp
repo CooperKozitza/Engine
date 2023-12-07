@@ -10,6 +10,7 @@ int main() {
 
   app->start();
   while (app->is_running()) {
+
   }
   app->stop();
 

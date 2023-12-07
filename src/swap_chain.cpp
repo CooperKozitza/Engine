@@ -1,12 +1,14 @@
 #include "../include/swap_chain.hpp"
 
 eng::swap_chain::swap_chain()
-    : vulkan_swap_chain(VK_NULL_HANDLE), swap_chain_images(),
+    : vulkan_swap_chain(VK_NULL_HANDLE), vulkan_device(VK_NULL_HANDLE),
+      vulkan_physical_device(VK_NULL_HANDLE), vulkan_surface(VK_NULL_HANDLE),
+      glfw_window(VK_NULL_HANDLE), swap_chain_images(),
       swap_chain_image_format(), swap_chain_extent(), swap_chain_image_views() {
 }
 
 eng::swap_chain::~swap_chain() {
-  if (vulkan_swap_chain != VK_NULL_HANDLE || vulkan_device == VK_NULL_HANDLE) {
+  if (vulkan_swap_chain != VK_NULL_HANDLE && vulkan_device != VK_NULL_HANDLE) {
     for (auto image_view : swap_chain_image_views) {
       vkDestroyImageView(vulkan_device, image_view, nullptr);
     }
@@ -64,12 +66,13 @@ void eng::swap_chain::create_swap_chain(device *dev, surface *surf) {
 
   create_info.oldSwapchain = VK_NULL_HANDLE;
 
-  if (vkCreateSwapchainKHR(vulkan_device, &create_info, nullptr, &vulkan_swap_chain) !=
-      VK_SUCCESS) {
+  if (vkCreateSwapchainKHR(vulkan_device, &create_info, nullptr,
+                           &vulkan_swap_chain) != VK_SUCCESS) {
     throw std::runtime_error("failed to create swap chain!");
   }
 
-  vkGetSwapchainImagesKHR(vulkan_device, vulkan_swap_chain, &image_count, nullptr);
+  vkGetSwapchainImagesKHR(vulkan_device, vulkan_swap_chain, &image_count,
+                          nullptr);
   swap_chain_images.resize(image_count);
   vkGetSwapchainImagesKHR(vulkan_device, vulkan_swap_chain, &image_count,
                           swap_chain_images.data());

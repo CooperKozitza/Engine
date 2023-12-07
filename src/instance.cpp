@@ -1,9 +1,9 @@
 #include "../include/instance.hpp"
 
-std::vector<const char *> eng::VALIDATION_LAYERS = {
+const std::vector<const char *> eng::VALIDATION_LAYERS = {
     "VK_LAYER_KHRONOS_validation"};
 
-std::vector<const char *> eng::REQUIRED_DEVICE_EXTENTIONS = {
+const std::vector<const char *> eng::REQUIRED_DEVICE_EXTENTIONS = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 eng::instance::instance()

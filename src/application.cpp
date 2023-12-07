@@ -217,9 +217,15 @@ void eng::application::create_render_pass() {
 }
 
 void eng::application::uninitialize_vulkan() {
-  vkDestroyPipeline(m_device->get(), graphics_pipeline, nullptr);
-  vkDestroyPipelineLayout(m_device->get(), pipeline_layout, nullptr);
-  vkDestroyRenderPass(m_device->get(), render_pass, nullptr);
+  if (graphics_pipeline != VK_NULL_HANDLE) {
+    vkDestroyPipeline(m_device->get(), graphics_pipeline, nullptr);
+  }
+  if (pipeline_layout != VK_NULL_HANDLE) {
+    vkDestroyPipelineLayout(m_device->get(), pipeline_layout, nullptr);
+  }
+  if (render_pass != VK_NULL_HANDLE) {
+    vkDestroyRenderPass(m_device->get(), render_pass, nullptr);
+  }
 }
 
 eng::application::~application() {
@@ -291,8 +297,8 @@ void eng::application::start() {
     m_swap_chain->create_swap_chain(m_device, m_surface);
     m_swap_chain->create_image_views();
 
-    //create_render_pass();
-    //create_graphics_pipeline();
+    // create_render_pass();
+    // create_graphics_pipeline();
 
     while (!m_window->should_close() && is_running()) {
       m_window->poll_events();
