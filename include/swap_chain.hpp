@@ -63,7 +63,6 @@ private:
   VkSurfaceKHR m_surface;
 
   VkDevice m_device;
-  VkPhysicalDevice m_physical_device;
 
   VkSwapchainKHR m_swap_chain;
 

@@ -16,51 +16,105 @@ eng::application *eng::application::create(const vec2<uint32_t> &res,
 
 eng::application::application(const vec2<uint32_t> res, const char *name)
     : m_window_details(res, name), m_window(nullptr), m_name(name),
-      m_instance(new instance()), m_surface(new surface()),
+      current_frame(), m_instance(new instance()), m_surface(new surface()),
       m_device(new device()), m_swap_chain(new swap_chain()),
       m_graphics_pipeline(new graphics_pipeline()),
-      m_framebuffer(new framebuffer()), m_command_buffer(new command_buffer()) {
+      m_framebuffer(new framebuffer()),
+      m_command_buffers(new command_buffers()),
+      m_vertex_buffer(new vertex_buffer()) {
+  image_available_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
+  render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
+  in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
+}
+
+void eng::application::initialize_vulkan() {
+  m_instance->create_instance(m_name);
+
+  m_surface->create_surface(m_instance, m_window);
+
+  m_device->create_device(m_instance, m_surface);
+
+  m_swap_chain->create_swap_chain(m_device, m_surface, m_window);
+  m_swap_chain->create_image_views(m_device);
+
+  m_graphics_pipeline->create_render_pass(m_device, m_swap_chain);
+  m_graphics_pipeline->create_graphics_pipeline(m_device, m_swap_chain);
+
+  m_framebuffer->create_framebuffers(m_device, m_swap_chain,
+                                     m_graphics_pipeline);
+
+  m_command_buffers->create_command_pool(m_device);
+  m_command_buffers->create_command_buffers(m_device, MAX_FRAMES_IN_FLIGHT);
+
+  std::vector<vertex> verts;
+
+  verts.push_back({{-0.5f, -0.5f}, {0.0f, 1.0f, 0.0f, 0.5f}});
+  verts.push_back({{0.5f, -0.5f}, {0.0f, 0.0f, 1.0f, 0.5f}});
+  verts.push_back({{0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.5f}});
+
+  verts.push_back({{-0.5f, -0.5f}, {0.0f, 1.0f, 0.0f, 0.5f}});
+  verts.push_back({{0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.5f}});
+  verts.push_back({{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f, 0.5f}});
+
+   verts.push_back({{-0.5f, 0.5f}, {0.0f, 1.0f, 0.0f, 0.5f}});
+  verts.push_back({{0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.5f}});
+  verts.push_back({{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f, 0.5f}});
+
+  verts.push_back({{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f, 0.5f}});
+  verts.push_back({{0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.5f}});
+  verts.push_back({{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f, 0.5f}});
+
+  m_vertex_buffer->set_vertices(verts);
+  m_vertex_buffer->create_vertex_buffer(m_device);
+
+  create_sync_objects();
 }
 
 void eng::application::create_sync_objects() {
-  VkSemaphoreCreateInfo semaphoreInfo{};
-  semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+  VkSemaphoreCreateInfo semaphore_info{};
+  semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-  VkFenceCreateInfo fenceInfo{};
-  fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+  VkFenceCreateInfo fence_info{};
+  fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-  if (vkCreateSemaphore(m_device->get(), &semaphoreInfo, nullptr,
-                        &image_available_semaphore) != VK_SUCCESS ||
-      vkCreateSemaphore(m_device->get(), &semaphoreInfo, nullptr,
-                        &render_finished_semaphore) != VK_SUCCESS ||
-      vkCreateFence(m_device->get(), &fenceInfo, nullptr, &in_flight_fence) !=
-          VK_SUCCESS) {
-    throw std::runtime_error("failed to create semaphores!");
+  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    if (vkCreateSemaphore(m_device->get(), &semaphore_info, nullptr,
+                          &image_available_semaphores[i]) != VK_SUCCESS ||
+        vkCreateSemaphore(m_device->get(), &semaphore_info, nullptr,
+                          &render_finished_semaphores[i]) != VK_SUCCESS ||
+        vkCreateFence(m_device->get(), &fence_info, nullptr,
+                      &in_flight_fences[i]) != VK_SUCCESS) {
+
+      throw std::runtime_error(
+          "failed to create synchronization objects for a frame!");
+    }
   }
 }
 
 void eng::application::draw_frame(command_buffer_options &command_buff_opts) {
   // wait for previous frame to finish by blocking execution
-  vkWaitForFences(m_device->get(), 1, &in_flight_fence, VK_TRUE, UINT64_MAX);
-  vkResetFences(m_device->get(), 1, &in_flight_fence);
+  vkWaitForFences(m_device->get(), 1, &in_flight_fences[current_frame], VK_TRUE,
+                  UINT64_MAX);
+  vkResetFences(m_device->get(), 1, &in_flight_fences[current_frame]);
 
   // get the image from the swap chain
   uint32_t image_index;
   vkAcquireNextImageKHR(m_device->get(), m_swap_chain->get(), UINT64_MAX,
-                        image_available_semaphore, VK_NULL_HANDLE,
-                        &image_index);
+                        image_available_semaphores[current_frame],
+                        VK_NULL_HANDLE, &image_index);
 
   // reset then record the command buffer for this frame
-  vkResetCommandBuffer(m_command_buffer->get(), 0);
+  vkResetCommandBuffer(m_command_buffers->get(current_frame), 0);
 
-  m_command_buffer->record_command_buffer(command_buff_opts, image_index);
+  m_command_buffers->record_command_buffer(command_buff_opts, image_index,
+                                           current_frame);
 
   // submit the command buffer
   VkSubmitInfo submit_info{};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-  VkSemaphore wait_semaphores[] = {image_available_semaphore};
+  VkSemaphore wait_semaphores[] = {image_available_semaphores[current_frame]};
   VkPipelineStageFlags wait_stages[] = {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   submit_info.waitSemaphoreCount = 1;
@@ -68,14 +122,14 @@ void eng::application::draw_frame(command_buffer_options &command_buff_opts) {
   submit_info.pWaitDstStageMask = wait_stages;
 
   submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &m_command_buffer->get();
+  submit_info.pCommandBuffers = &m_command_buffers->get(current_frame);
 
-  VkSemaphore signal_semaphores[] = {render_finished_semaphore};
+  VkSemaphore signal_semaphores[] = {render_finished_semaphores[current_frame]};
   submit_info.signalSemaphoreCount = 1;
   submit_info.pSignalSemaphores = signal_semaphores;
 
   if (vkQueueSubmit(m_device->get_graphics_queue(), 1, &submit_info,
-                    in_flight_fence) != VK_SUCCESS) {
+                    in_flight_fences[current_frame]) != VK_SUCCESS) {
     throw std::runtime_error("failed to submit draw command buffer!");
   }
 
@@ -90,7 +144,36 @@ void eng::application::draw_frame(command_buffer_options &command_buff_opts) {
   present_info.pSwapchains = swap_chains;
   present_info.pImageIndices = &image_index;
 
-  vkQueuePresentKHR(m_device->get_present_queue(), &present_info);
+  VkResult result =
+      vkQueuePresentKHR(m_device->get_present_queue(), &present_info);
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+    recreate_swap_chain();
+  } else if (result != VK_SUCCESS) {
+    throw std::runtime_error("failed to present swap chain image!");
+  }
+
+  current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void eng::application::recreate_swap_chain() {
+  vkDeviceWaitIdle(m_device->get());
+
+  reset_swap_chain();
+
+  m_swap_chain->create_swap_chain(m_device, m_surface, m_window);
+  m_swap_chain->create_image_views(m_device);
+
+  m_framebuffer->create_framebuffers(m_device, m_swap_chain,
+                                     m_graphics_pipeline);
+}
+
+void eng::application::reset_swap_chain() {
+  delete m_framebuffer;
+  delete m_swap_chain;
+
+  m_framebuffer = new framebuffer();
+  m_swap_chain = new swap_chain();
 }
 
 eng::application::~application() {
@@ -100,14 +183,17 @@ eng::application::~application() {
     stop();
   }
 
-  delete m_command_buffer;
+  delete m_vertex_buffer;
+  delete m_command_buffers;
   delete m_framebuffer;
   delete m_graphics_pipeline;
   delete m_swap_chain;
 
-  vkDestroySemaphore(m_device->get(), image_available_semaphore, nullptr);
-  vkDestroySemaphore(m_device->get(), render_finished_semaphore, nullptr);
-  vkDestroyFence(m_device->get(), in_flight_fence, nullptr);
+  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+    vkDestroySemaphore(m_device->get(), image_available_semaphores[i], nullptr);
+    vkDestroySemaphore(m_device->get(), render_finished_semaphores[i], nullptr);
+    vkDestroyFence(m_device->get(), in_flight_fences[i], nullptr);
+  }
 
   delete m_device;
   delete m_surface;
@@ -132,45 +218,20 @@ void eng::application::start() {
   m_main = std::thread([this] {
     m_window = new window(m_window_details);
 
-    m_instance->create_instance(m_name);
-
-    m_surface->create_surface(m_instance, m_window);
-
-    m_device->create_device(m_instance, m_surface);
-
-    m_swap_chain->create_swap_chain(m_device, m_surface, m_window);
-    m_swap_chain->create_image_views(m_device);
-
-    m_graphics_pipeline->create_render_pass(m_device, m_swap_chain);
-    m_graphics_pipeline->create_graphics_pipeline(m_device, m_swap_chain);
-
-    m_framebuffer->create_framebuffers(m_device, m_swap_chain,
-                                       m_graphics_pipeline);
-
-    m_command_buffer->create_command_pool(m_device);
-    m_command_buffer->create_command_buffer(m_device);
-
-    create_sync_objects();
+    initialize_vulkan();
 
     command_buffer_options opts{};
     opts.swap_chain = m_swap_chain;
     opts.graphics_pipeline = m_graphics_pipeline;
     opts.framebuffer = m_framebuffer;
+    opts.vertex_buffer = m_vertex_buffer;
     opts.clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
 
-    uint16_t fps_frame_count = 0;
-
+    unsigned int i = 0;
     while (!m_window->should_close() && is_running()) {
       m_window->poll_events();
 
       draw_frame(opts);
-
-      fps_frame_count++;
-      if (fps_frame_count > 5000) {
-        std::cout << "FPS: " << 5000 / glfwGetTime() << "\n";
-        glffwSetTime(0);
-        fps_frame_count = 0;
-      }
 
       // main loop logic
     }

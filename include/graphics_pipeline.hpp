@@ -2,9 +2,12 @@
 
 #include <algorithm>
 
+#include <glm/glm.hpp>
+
 #include "device.hpp"
 #include "shader.hpp"
 #include "swap_chain.hpp"
+#include "vertex.hpp"
 
 namespace eng {
 class graphics_pipeline {

@@ -108,6 +108,21 @@ int eng::device::rate_physical_device_suitability(VkPhysicalDevice device) {
   return score;
 }
 
+uint32_t eng::device::find_memory_type(uint32_t type_filter,
+                                       VkMemoryPropertyFlags properties) {
+  VkPhysicalDeviceMemoryProperties mem_properties;
+  vkGetPhysicalDeviceMemoryProperties(m_physical_device, &mem_properties);
+
+  for (uint32_t i = 0; i < mem_properties.memoryTypeCount; i++) {
+    if ((type_filter & (1 << i)) && (mem_properties.memoryTypes[i].propertyFlags &
+                                    properties) == properties) {
+      return i;
+    }
+  }
+
+  throw std::runtime_error("failed to find suitable memory type!");
+}
+
 eng::device::queue_family_indices
 eng::device::find_queue_families(VkPhysicalDevice device) {
   queue_family_indices indices;

@@ -40,9 +40,11 @@ public:
     return m_queue_family_indices;
   };
 
-
   VkPhysicalDevice &get_physical_device() { return m_physical_device; };
   VkDevice &get() { return m_device; };
+
+  uint32_t find_memory_type(uint32_t type_filter,
+                          VkMemoryPropertyFlags properties);
 
 private:
   /// <summary>

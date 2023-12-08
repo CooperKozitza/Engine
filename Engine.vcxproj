@@ -29,6 +29,8 @@
     <ClInclude Include="include\surface.hpp" />
     <ClInclude Include="include\swap_chain.hpp" />
     <ClInclude Include="include\vectors.hpp" />
+    <ClInclude Include="include\vertex.hpp" />
+    <ClInclude Include="include\vertex_buffer.hpp" />
     <ClInclude Include="include\window.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -42,6 +44,7 @@
     <ClCompile Include="src\shader.cpp" />
     <ClCompile Include="src\surface.cpp" />
     <ClCompile Include="src\swap_chain.cpp" />
+    <ClCompile Include="src\vertex_buffer.cpp" />
     <ClCompile Include="src\window.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

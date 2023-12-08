@@ -34,6 +34,8 @@ public:
 
   ~application();
 
+  const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+
   void set_shader(const char *file_path, shader_type type);
 
   void start();
@@ -46,8 +48,13 @@ private:
   static application *app;
 
   // helper funcs:
+  void initialize_vulkan();
+
   void create_sync_objects();
   void draw_frame(command_buffer_options &command_buff_opts);
+
+  void recreate_swap_chain();
+  void reset_swap_chain();
 
   // prevents two threads from simultaneously creating an application
   // instance
@@ -61,6 +68,9 @@ private:
 
   // the name of the application
   const char *m_name;
+
+  // frame index
+  uint32_t current_frame;
 
   // the glfw window instance
   window_details m_window_details;
@@ -84,12 +94,15 @@ private:
   // the swap chain framebuffer
   framebuffer *m_framebuffer;
 
-  // the command pool and command buffer
-  command_buffer *m_command_buffer;
+  // the command pool and command buffers
+  command_buffers *m_command_buffers;
+
+  // the vb
+  vertex_buffer *m_vertex_buffer;
 
   // synchronization
-  VkSemaphore image_available_semaphore;
-  VkSemaphore render_finished_semaphore;
-  VkFence in_flight_fence;
+  std::vector<VkSemaphore> image_available_semaphores;
+  std::vector <VkSemaphore> render_finished_semaphores;
+  std::vector <VkFence> in_flight_fences;
 };
 } // namespace eng

@@ -2,10 +2,8 @@
 
 eng::swap_chain::swap_chain()
     : m_swap_chain(VK_NULL_HANDLE), m_device(VK_NULL_HANDLE),
-      m_physical_device(VK_NULL_HANDLE), m_surface(VK_NULL_HANDLE),
-      m_window(VK_NULL_HANDLE), m_images(),
-      m_image_format(), m_extent(), m_image_views() {
-}
+      m_surface(VK_NULL_HANDLE), m_window(VK_NULL_HANDLE), m_images(),
+      m_image_format(), m_extent(), m_image_views() {}
 
 eng::swap_chain::~swap_chain() {
   if (m_swap_chain != VK_NULL_HANDLE && m_device != VK_NULL_HANDLE) {
@@ -69,13 +67,12 @@ void eng::swap_chain::create_swap_chain(device *dev, surface *surf,
 
   create_info.oldSwapchain = VK_NULL_HANDLE;
 
-  if (vkCreateSwapchainKHR(m_device, &create_info, nullptr,
-                           &m_swap_chain) != VK_SUCCESS) {
+  if (vkCreateSwapchainKHR(m_device, &create_info, nullptr, &m_swap_chain) !=
+      VK_SUCCESS) {
     throw std::runtime_error("failed to create swap chain!");
   }
 
-  vkGetSwapchainImagesKHR(m_device, m_swap_chain, &image_count,
-                          nullptr);
+  vkGetSwapchainImagesKHR(m_device, m_swap_chain, &image_count, nullptr);
   m_images.resize(image_count);
   vkGetSwapchainImagesKHR(m_device, m_swap_chain, &image_count,
                           m_images.data());
@@ -106,8 +103,8 @@ void eng::swap_chain::create_image_views(device *dev) {
     create_info.subresourceRange.baseArrayLayer = 0;
     create_info.subresourceRange.layerCount = 1;
 
-    if (vkCreateImageView(m_device, &create_info, nullptr,
-                          &m_image_views[i]) != VK_SUCCESS) {
+    if (vkCreateImageView(m_device, &create_info, nullptr, &m_image_views[i]) !=
+        VK_SUCCESS) {
       throw std::runtime_error("failed to create image views!");
     }
   }
@@ -128,7 +125,7 @@ VkSurfaceFormatKHR eng::swap_chain::choose_swap_surface_format(
 VkPresentModeKHR eng::swap_chain::choose_present_mode(
     const std::vector<VkPresentModeKHR> &available_present_modes) {
   for (const auto &available_present_mode : available_present_modes) {
-    if (available_present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+    if (available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
       return available_present_mode;
     }
   }

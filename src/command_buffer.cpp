@@ -1,16 +1,16 @@
 #include "../include/command_buffer.hpp"
 
-eng::command_buffer::command_buffer()
+eng::command_buffers::command_buffers()
     : m_device(VK_NULL_HANDLE), m_command_pool(VK_NULL_HANDLE),
-      m_command_buffer(VK_NULL_HANDLE) {}
+      m_command_buffers() {}
 
-eng::command_buffer::~command_buffer() {
+eng::command_buffers::~command_buffers() {
   if (m_device != VK_NULL_HANDLE && m_command_pool != VK_NULL_HANDLE) {
     vkDestroyCommandPool(m_device, m_command_pool, nullptr);
   }
 }
 
-void eng::command_buffer::create_command_pool(device *dev) {
+void eng::command_buffers::create_command_pool(device *dev) {
   m_device = dev->get();
 
   device::queue_family_indices queue_family_indices =
@@ -27,27 +27,29 @@ void eng::command_buffer::create_command_pool(device *dev) {
   }
 }
 
-void eng::command_buffer::create_command_buffer(device *dev) {
+void eng::command_buffers::create_command_buffers(device *dev, uint32_t count) {
   m_device = dev->get();
+
+  m_command_buffers.resize(count);
 
   VkCommandBufferAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   alloc_info.commandPool = m_command_pool;
   alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  alloc_info.commandBufferCount = 1;
+  alloc_info.commandBufferCount = (uint32_t)m_command_buffers.size();
 
-  if (vkAllocateCommandBuffers(m_device, &alloc_info, &m_command_buffer) !=
+  if (vkAllocateCommandBuffers(m_device, &alloc_info, m_command_buffers.data()) !=
       VK_SUCCESS) {
     throw std::runtime_error("failed to allocate command buffers!");
   }
 }
 
-void eng::command_buffer::record_command_buffer(command_buffer_options &opts,
-                                                uint32_t image_index) {
+void eng::command_buffers::record_command_buffer(command_buffer_options &opts,
+                                                uint32_t image_index, uint32_t buffer_index) {
   VkCommandBufferBeginInfo begin_info{};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-  if (vkBeginCommandBuffer(m_command_buffer, &begin_info) != VK_SUCCESS) {
+  if (vkBeginCommandBuffer(m_command_buffers[buffer_index], &begin_info) != VK_SUCCESS) {
     throw std::runtime_error("failed to begin recording command buffer!");
   }
 
@@ -63,10 +65,10 @@ void eng::command_buffer::record_command_buffer(command_buffer_options &opts,
   render_pass_info.clearValueCount = 1;
   render_pass_info.pClearValues = &clear_color;
 
-  vkCmdBeginRenderPass(m_command_buffer, &render_pass_info,
+  vkCmdBeginRenderPass(m_command_buffers[buffer_index], &render_pass_info,
                        VK_SUBPASS_CONTENTS_INLINE);
 
-  vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+  vkCmdBindPipeline(m_command_buffers[buffer_index], VK_PIPELINE_BIND_POINT_GRAPHICS,
                     opts.graphics_pipeline->get());
 
   VkViewport viewport{};
@@ -76,18 +78,23 @@ void eng::command_buffer::record_command_buffer(command_buffer_options &opts,
   viewport.height = (float)opts.swap_chain->get_extent().height;
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
-  vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
+  vkCmdSetViewport(m_command_buffers[buffer_index], 0, 1, &viewport);
 
   VkRect2D scissor{};
   scissor.offset = {0, 0};
   scissor.extent = opts.swap_chain->get_extent();
-  vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
+  vkCmdSetScissor(m_command_buffers[buffer_index], 0, 1, &scissor);
 
-  vkCmdDraw(m_command_buffer, 3, 1, 0, 0);
+  VkBuffer vertex_buffers[] = {opts.vertex_buffer->get()};
+  VkDeviceSize offsets[] = {0};
+  vkCmdBindVertexBuffers(m_command_buffers[buffer_index], 0, 1, vertex_buffers, offsets);
 
-  vkCmdEndRenderPass(m_command_buffer);
+  vkCmdDraw(m_command_buffers[buffer_index],
+            (uint32_t)(opts.vertex_buffer->get_vertex_count()), 1, 0, 0);
 
-  if (vkEndCommandBuffer(m_command_buffer) != VK_SUCCESS) {
+  vkCmdEndRenderPass(m_command_buffers[buffer_index]);
+
+  if (vkEndCommandBuffer(m_command_buffers[buffer_index]) != VK_SUCCESS) {
     throw std::runtime_error("failed to record command buffer!");
   }
 }
