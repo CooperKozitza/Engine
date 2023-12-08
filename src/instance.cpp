@@ -107,6 +107,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL eng::instance::debug_callback(
     VkDebugUtilsMessageTypeFlagsEXT message_type,
     const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data,
     void *p_user_data) {
+  if (message_severity < MINIMUM_VALIDATION_LAYER_MESSAGE_SEVERITY) {
+    return VK_FALSE;
+  }
+
   std::cerr << "Validation Layer: \n";
   std::cerr << "- " << p_callback_data->pMessage << '\n' << std::endl;
 

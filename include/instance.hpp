@@ -15,6 +15,10 @@ constexpr bool ENABLE_VALIDATION_LAYERS = false;
 constexpr bool ENABLE_VALIDATION_LAYERS = true;
 #endif // !_DEBUG
 
+constexpr VkDebugUtilsMessageSeverityFlagBitsEXT
+    MINIMUM_VALIDATION_LAYER_MESSAGE_SEVERITY =
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+
 /// <summary>
 /// The enabled validation layers
 /// </summary>

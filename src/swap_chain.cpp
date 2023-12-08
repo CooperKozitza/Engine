@@ -3,13 +3,13 @@
 eng::swap_chain::swap_chain()
     : vulkan_swap_chain(VK_NULL_HANDLE), vulkan_device(VK_NULL_HANDLE),
       vulkan_physical_device(VK_NULL_HANDLE), vulkan_surface(VK_NULL_HANDLE),
-      glfw_window(VK_NULL_HANDLE), swap_chain_images(),
-      swap_chain_image_format(), swap_chain_extent(), swap_chain_image_views() {
+      glfw_window(VK_NULL_HANDLE), images(),
+      image_format(), extent(), image_views() {
 }
 
 eng::swap_chain::~swap_chain() {
   if (vulkan_swap_chain != VK_NULL_HANDLE && vulkan_device != VK_NULL_HANDLE) {
-    for (auto image_view : swap_chain_image_views) {
+    for (auto image_view : image_views) {
       vkDestroyImageView(vulkan_device, image_view, nullptr);
     }
 
@@ -73,24 +73,26 @@ void eng::swap_chain::create_swap_chain(device *dev, surface *surf) {
 
   vkGetSwapchainImagesKHR(vulkan_device, vulkan_swap_chain, &image_count,
                           nullptr);
-  swap_chain_images.resize(image_count);
+  images.resize(image_count);
   vkGetSwapchainImagesKHR(vulkan_device, vulkan_swap_chain, &image_count,
-                          swap_chain_images.data());
+                          images.data());
 
-  swap_chain_image_format = surface_format.format;
-  swap_chain_extent = extent;
+  image_format = surface_format.format;
+  extent = extent;
 }
 
-void eng::swap_chain::create_image_views() {
-  swap_chain_image_views.resize(swap_chain_images.size());
+void eng::swap_chain::create_image_views(device *dev) {
+  vulkan_device = dev->get();
 
-  for (size_t i = 0; i < swap_chain_images.size(); i++) {
+  image_views.resize(images.size());
+
+  for (size_t i = 0; i < images.size(); i++) {
     VkImageViewCreateInfo create_info{};
 
     create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    create_info.image = swap_chain_images[i];
+    create_info.image = images[i];
     create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    create_info.format = swap_chain_image_format;
+    create_info.format = image_format;
     create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
     create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
     create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -102,7 +104,7 @@ void eng::swap_chain::create_image_views() {
     create_info.subresourceRange.layerCount = 1;
 
     if (vkCreateImageView(vulkan_device, &create_info, nullptr,
-                          &swap_chain_image_views[i]) != VK_SUCCESS) {
+                          &image_views[i]) != VK_SUCCESS) {
       throw std::runtime_error("failed to create image views!");
     }
   }

@@ -19,6 +19,7 @@
 #include "surface.hpp"
 #include "device.hpp"
 #include "swap_chain.hpp"
+#include "graphics_pipeline.hpp"
 
 namespace eng {
 class application {
@@ -43,9 +44,6 @@ private:
   static application *app;
 
   // helper funcs:
-  void create_graphics_pipeline();
-
-  void create_render_pass();
 
   void uninitialize_vulkan();
 
@@ -78,10 +76,7 @@ private:
   // the vulkan swap chain
   swap_chain *m_swap_chain;
 
-  VkRenderPass render_pass;
-  VkPipelineLayout pipeline_layout;
-  VkPipeline graphics_pipeline;
-
-  std::vector<shader *> shaders;
+  // the vulkan graphics pipeline and render pass
+  graphics_pipeline *m_graphics_pipeline;
 };
 } // namespace eng

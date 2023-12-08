@@ -21,17 +21,17 @@ public:
   /// Initialized each of the image views for each of the images in the swap
   /// chain
   /// </summary>
-  void create_image_views();
+  void create_image_views(device *dev);
 
   VkSwapchainKHR get() { return vulkan_swap_chain; };
 
-  std::vector<VkImage> &get_images() { return swap_chain_images; };
+  std::vector<VkImage> &get_images() { return images; };
   std::vector<VkImageView> &get_image_views() {
-    return swap_chain_image_views;
+    return image_views;
   };
 
-  VkFormat get_image_format() { return swap_chain_image_format; };
-  VkExtent2D get_extent() { return swap_chain_extent; };
+  VkFormat get_image_format() { return image_format; };
+  VkExtent2D get_extent() { return extent; };
 
 
 private:
@@ -66,9 +66,12 @@ private:
   VkPhysicalDevice vulkan_physical_device;
 
   VkSwapchainKHR vulkan_swap_chain;
-  std::vector<VkImage> swap_chain_images;
-  VkFormat swap_chain_image_format;
-  VkExtent2D swap_chain_extent;
-  std::vector<VkImageView> swap_chain_image_views;
+
+  std::vector<VkImage> images;
+  VkFormat image_format;
+
+  VkExtent2D extent;
+
+  std::vector<VkImageView> image_views;
 };
 } // namespace eng

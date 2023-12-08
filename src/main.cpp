@@ -3,9 +3,9 @@
 int main() {
   eng::application *const app = eng::application::create({800, 600}, "Test!");
 
-  app->set_shader("C:/Users/coope/Documents/Engine/shaders/test.vert",
+  app->set_shader("C:/Users/coope/Documents/Engine/shaders/vert.spv",
                   eng::VERTEX);
-  app->set_shader("C:/Users/coope/Documents/Engine/shaders/test.frag",
+  app->set_shader("C:/Users/coope/Documents/Engine/shaders/frag.spv",
                   eng::FRAGMENT);
 
   app->start();

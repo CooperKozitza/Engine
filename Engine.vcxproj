@@ -21,6 +21,8 @@
   <ItemGroup>
     <ClInclude Include="include\application.hpp" />
     <ClInclude Include="include\device.hpp" />
+    <ClInclude Include="include\framebuffer.hpp" />
+    <ClInclude Include="include\graphics_pipeline.hpp" />
     <ClInclude Include="include\instance.hpp" />
     <ClInclude Include="include\shader.hpp" />
     <ClInclude Include="include\surface.hpp" />
@@ -31,6 +33,8 @@
   <ItemGroup>
     <ClCompile Include="src\application.cpp" />
     <ClCompile Include="src\device.cpp" />
+    <ClCompile Include="src\framebuffer.cpp" />
+    <ClCompile Include="src\graphics_pipeline.cpp" />
     <ClCompile Include="src\instance.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\shader.cpp" />
