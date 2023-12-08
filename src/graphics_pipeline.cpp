@@ -1,35 +1,35 @@
 #include "../include/graphics_pipeline.hpp"
 
 eng::graphics_pipeline::graphics_pipeline()
-    : render_pass(VK_NULL_HANDLE), pipeline_layout(VK_NULL_HANDLE),
-      vulkan_graphics_pipeline(VK_NULL_HANDLE), shaders() {}
+    : m_render_pass(VK_NULL_HANDLE), m_pipeline_layout(VK_NULL_HANDLE),
+      m_graphics_pipeline(VK_NULL_HANDLE), m_shaders() {}
 
 eng::graphics_pipeline::~graphics_pipeline() {
-  for (auto s : shaders) {
+  for (auto s : m_shaders) {
     if (s) {
       delete s;
     }
   }
 
-  if (vulkan_graphics_pipeline != VK_NULL_HANDLE) {
-    vkDestroyPipeline(vulkan_device, vulkan_graphics_pipeline, nullptr);
+  if (m_graphics_pipeline != VK_NULL_HANDLE) {
+    vkDestroyPipeline(m_device, m_graphics_pipeline, nullptr);
   }
-  if (pipeline_layout != VK_NULL_HANDLE) {
-    vkDestroyPipelineLayout(vulkan_device, pipeline_layout, nullptr);
+  if (m_pipeline_layout != VK_NULL_HANDLE) {
+    vkDestroyPipelineLayout(m_device, m_pipeline_layout, nullptr);
   }
-  if (render_pass != VK_NULL_HANDLE) {
-    vkDestroyRenderPass(vulkan_device, render_pass, nullptr);
+  if (m_render_pass != VK_NULL_HANDLE) {
+    vkDestroyRenderPass(m_device, m_render_pass, nullptr);
   }
 }
 
 void eng::graphics_pipeline::set_shader(const char *file_path,
                                         shader_type type) {
-  if (!shaders.empty()) {
+  if (!m_shaders.empty()) {
     std::vector<shader *>::iterator duplacate =
-        std::find_if(shaders.begin(), shaders.end(),
+        std::find_if(m_shaders.begin(), m_shaders.end(),
                      [&type](shader *x) { return x->get_type() == type; });
 
-    if (duplacate != shaders.end()) {
+    if (duplacate != m_shaders.end()) {
       std::cout << "Replacing " << typeid(type).name()
                 << " Shader With Shader At: " << file_path << std::endl;
 
@@ -40,24 +40,25 @@ void eng::graphics_pipeline::set_shader(const char *file_path,
     }
   }
 
-  shaders.push_back(new shader(file_path, type));
+  m_shaders.push_back(new shader(file_path, type));
 }
 
 void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
                                                       swap_chain *sc) {
   std::vector<shader *>::iterator vert_shader_pos =
-      std::find_if(shaders.begin(), shaders.end(),
+      std::find_if(m_shaders.begin(), m_shaders.end(),
                    [](shader *x) { return x->get_type() == VERTEX; });
 
   std::vector<shader *>::iterator frag_shader_pos =
-      std::find_if(shaders.begin(), shaders.end(),
+      std::find_if(m_shaders.begin(), m_shaders.end(),
                    [](shader *x) { return x->get_type() == FRAGMENT; });
 
-  if (vert_shader_pos == shaders.end() || frag_shader_pos == shaders.end()) {
+  if (vert_shader_pos == m_shaders.end() ||
+      frag_shader_pos == m_shaders.end()) {
     throw std::runtime_error("could not find required shaders");
   }
 
-  vulkan_device = dev->get();
+  m_device = dev->get();
 
   VkShaderModule vert_shder_module =
       (*vert_shader_pos)->create_shader_module(dev);
@@ -113,7 +114,7 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
   VkPipelineDynamicStateCreateInfo dynamic_state{};
   dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
   dynamic_state.dynamicStateCount =
-      static_cast<unsigned int>(dynamic_states.size());
+      static_cast<uint32_t>(dynamic_states.size());
   dynamic_state.pDynamicStates = dynamic_states.data();
 
   VkPipelineViewportStateCreateInfo viewport_state{};
@@ -169,8 +170,8 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
   pipeline_layout_info.pushConstantRangeCount = 0;    // Optional
   pipeline_layout_info.pPushConstantRanges = nullptr; // Optional
 
-  if (vkCreatePipelineLayout(vulkan_device, &pipeline_layout_info, nullptr,
-                             &pipeline_layout) != VK_SUCCESS) {
+  if (vkCreatePipelineLayout(m_device, &pipeline_layout_info, nullptr,
+                             &m_pipeline_layout) != VK_SUCCESS) {
     throw std::runtime_error("failed to create pipeline layout!");
   }
 
@@ -187,17 +188,16 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
   pipeline_info.pColorBlendState = &color_blending;
   pipeline_info.pDynamicState = &dynamic_state;
 
-  pipeline_info.layout = pipeline_layout;
+  pipeline_info.layout = m_pipeline_layout;
 
-  pipeline_info.renderPass = render_pass;
+  pipeline_info.renderPass = m_render_pass;
   pipeline_info.subpass = 0;
 
   pipeline_info.basePipelineHandle = VK_NULL_HANDLE; // Optional
   pipeline_info.basePipelineIndex = -1;              // Optional
 
-  if (vkCreateGraphicsPipelines(vulkan_device, VK_NULL_HANDLE, 1,
-                                &pipeline_info, nullptr,
-                                &vulkan_graphics_pipeline) != VK_SUCCESS) {
+  if (vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_info,
+                                nullptr, &m_graphics_pipeline) != VK_SUCCESS) {
     throw std::runtime_error("failed to create graphics pipeline!");
   }
 
@@ -208,7 +208,7 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
 }
 
 void eng::graphics_pipeline::create_render_pass(device *dev, swap_chain *sc) {
-  vulkan_device = dev->get();
+  m_device = dev->get();
 
   VkAttachmentDescription color_attachment{};
   color_attachment.format = sc->get_image_format();
@@ -239,18 +239,31 @@ void eng::graphics_pipeline::create_render_pass(device *dev, swap_chain *sc) {
   render_pass_info.subpassCount = 1;
   render_pass_info.pSubpasses = &subpass;
 
-  if (vkCreateRenderPass(vulkan_device, &render_pass_info, nullptr,
-                         &render_pass) != VK_SUCCESS) {
+  VkSubpassDependency dependency{};
+  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+  dependency.dstSubpass = 0;
+
+  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dependency.srcAccessMask = 0;
+
+  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+  render_pass_info.dependencyCount = 1;
+  render_pass_info.pDependencies = &dependency;
+
+  if (vkCreateRenderPass(m_device, &render_pass_info, nullptr,
+                         &m_render_pass) != VK_SUCCESS) {
     throw std::runtime_error("failed to create render pass!");
   }
 }
 
 bool eng::graphics_pipeline::required_shaders_set() {
   bool has_vert_shaders =
-      std::any_of(shaders.begin(), shaders.end(),
+      std::any_of(m_shaders.begin(), m_shaders.end(),
                   [](shader *x) { return x->get_type() == VERTEX; });
   bool has_frag_shaders =
-      std::any_of(shaders.begin(), shaders.end(),
+      std::any_of(m_shaders.begin(), m_shaders.end(),
                   [](shader *x) { return x->get_type() == FRAGMENT; });
 
   return has_vert_shaders && has_frag_shaders;

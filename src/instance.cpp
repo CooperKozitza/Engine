@@ -7,11 +7,11 @@ const std::vector<const char *> eng::REQUIRED_DEVICE_EXTENTIONS = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 eng::instance::instance()
-    : m_instance(VK_NULL_HANDLE), debug_messenger(VK_NULL_HANDLE) {}
+    : m_instance(VK_NULL_HANDLE), m_debug_messenger(VK_NULL_HANDLE) {}
 
 eng::instance::~instance() {
   if (ENABLE_VALIDATION_LAYERS) {
-    destroy_debug_utils_messenger_ext(m_instance, debug_messenger, nullptr);
+    destroy_debug_utils_messenger_ext(m_instance, m_debug_messenger, nullptr);
   }
 
   vkDestroyInstance(m_instance, nullptr);
@@ -44,13 +44,13 @@ void eng::instance::create_instance(const char *application_name) {
   }
 
   create_info.enabledExtensionCount =
-      static_cast<unsigned int>(extentions.size());
+      static_cast<uint32_t>(extentions.size());
   create_info.ppEnabledExtensionNames = extentions.data();
 
   VkDebugUtilsMessengerCreateInfoEXT debug_create_info{};
   if (ENABLE_VALIDATION_LAYERS) {
     create_info.enabledLayerCount =
-        static_cast<unsigned int>(VALIDATION_LAYERS.size());
+        static_cast<uint32_t>(VALIDATION_LAYERS.size());
     create_info.ppEnabledLayerNames = VALIDATION_LAYERS.data();
 
     populate_debug_messenger_create_info(debug_create_info);
@@ -70,10 +70,10 @@ void eng::instance::create_instance(const char *application_name) {
   std::cout << "Created Vulkan Instance" << std::endl;
 }
 
-VkInstance eng::instance::get() { return m_instance; }
+VkInstance &eng::instance::get() { return m_instance; }
 
-VkDebugUtilsMessengerEXT eng::instance::get_debug_messenger() {
-  return debug_messenger;
+VkDebugUtilsMessengerEXT &eng::instance::get_debug_messenger() {
+  return m_debug_messenger;
 }
 
 VkResult eng::instance::create_debug_utils_messenger_ext(
@@ -92,13 +92,13 @@ VkResult eng::instance::create_debug_utils_messenger_ext(
 }
 
 void eng::instance::destroy_debug_utils_messenger_ext(
-    VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger,
+    VkInstance instance, VkDebugUtilsMessengerEXT m_debug_messenger,
     const VkAllocationCallbacks *p_allocator) {
   auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
       instance, "vkDestroyDebugUtilsMessengerEXT");
 
   if (func != nullptr) {
-    func(instance, debug_messenger, p_allocator);
+    func(instance, m_debug_messenger, p_allocator);
   }
 }
 
@@ -118,7 +118,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL eng::instance::debug_callback(
 }
 
 bool eng::instance::check_validation_layer_support() {
-  unsigned int layer_count;
+  uint32_t layer_count;
   vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
 
   std::vector<VkLayerProperties> available_layers(layer_count);
@@ -143,7 +143,7 @@ bool eng::instance::check_validation_layer_support() {
 }
 
 std::vector<const char *> eng::instance::get_required_extentions() {
-  unsigned int glfw_extension_count = 0;
+  uint32_t glfw_extension_count = 0;
   const char **glfw_extensions;
   glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
 
@@ -179,7 +179,7 @@ void eng::instance::setup_debug_messenger() {
   populate_debug_messenger_create_info(create_info);
 
   if (create_debug_utils_messenger_ext(m_instance, &create_info, nullptr,
-                                       &debug_messenger) != VK_SUCCESS) {
+                                       &m_debug_messenger) != VK_SUCCESS) {
     throw std::runtime_error("failed to set up debug messenger!");
   }
 }

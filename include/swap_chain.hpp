@@ -15,7 +15,7 @@ public:
   /// <summary>
   /// Creates the swap chain
   /// </summary>
-  void create_swap_chain(device *dev, surface *surf);
+  void create_swap_chain(device *dev, surface *surf, window *win);
 
   /// <summary>
   /// Initialized each of the image views for each of the images in the swap
@@ -23,15 +23,15 @@ public:
   /// </summary>
   void create_image_views(device *dev);
 
-  VkSwapchainKHR get() { return vulkan_swap_chain; };
+  VkSwapchainKHR &get() { return m_swap_chain; };
 
-  std::vector<VkImage> &get_images() { return images; };
+  std::vector<VkImage> &get_images() { return m_images; };
   std::vector<VkImageView> &get_image_views() {
-    return image_views;
+    return m_image_views;
   };
 
-  VkFormat get_image_format() { return image_format; };
-  VkExtent2D get_extent() { return extent; };
+  VkFormat &get_image_format() { return m_image_format; };
+  VkExtent2D &get_extent() { return m_extent; };
 
 
 private:
@@ -59,19 +59,19 @@ private:
   /// <returns>The extents</returns>
   VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR &capabilities);
 
-  GLFWwindow *glfw_window;
-  VkSurfaceKHR vulkan_surface;
+  GLFWwindow *m_window;
+  VkSurfaceKHR m_surface;
 
-  VkDevice vulkan_device;
-  VkPhysicalDevice vulkan_physical_device;
+  VkDevice m_device;
+  VkPhysicalDevice m_physical_device;
 
-  VkSwapchainKHR vulkan_swap_chain;
+  VkSwapchainKHR m_swap_chain;
 
-  std::vector<VkImage> images;
-  VkFormat image_format;
+  std::vector<VkImage> m_images;
+  VkFormat m_image_format;
 
-  VkExtent2D extent;
+  VkExtent2D m_extent;
 
-  std::vector<VkImageView> image_views;
+  std::vector<VkImageView> m_image_views;
 };
 } // namespace eng

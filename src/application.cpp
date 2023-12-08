@@ -4,7 +4,7 @@ eng::application *eng::application::app;
 
 std::mutex eng::application::creation_mutex;
 
-eng::application *eng::application::create(const vec2<unsigned int> &res,
+eng::application *eng::application::create(const vec2<uint32_t> &res,
                                            const char *title) {
   std::lock_guard<std::mutex> guard(creation_mutex);
   if (!app) {
@@ -14,21 +14,101 @@ eng::application *eng::application::create(const vec2<unsigned int> &res,
   return app;
 }
 
-eng::application::application(const vec2<unsigned int> res, const char *name)
-    : m_window_details(res, name), m_window(nullptr), name(name),
+eng::application::application(const vec2<uint32_t> res, const char *name)
+    : m_window_details(res, name), m_window(nullptr), m_name(name),
       m_instance(new instance()), m_surface(new surface()),
       m_device(new device()), m_swap_chain(new swap_chain()),
-      m_graphics_pipeline(new graphics_pipeline()) {}
+      m_graphics_pipeline(new graphics_pipeline()),
+      m_framebuffer(new framebuffer()), m_command_buffer(new command_buffer()) {
+}
 
-void eng::application::uninitialize_vulkan() {}
+void eng::application::create_sync_objects() {
+  VkSemaphoreCreateInfo semaphoreInfo{};
+  semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+  VkFenceCreateInfo fenceInfo{};
+  fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+  if (vkCreateSemaphore(m_device->get(), &semaphoreInfo, nullptr,
+                        &image_available_semaphore) != VK_SUCCESS ||
+      vkCreateSemaphore(m_device->get(), &semaphoreInfo, nullptr,
+                        &render_finished_semaphore) != VK_SUCCESS ||
+      vkCreateFence(m_device->get(), &fenceInfo, nullptr, &in_flight_fence) !=
+          VK_SUCCESS) {
+    throw std::runtime_error("failed to create semaphores!");
+  }
+}
+
+void eng::application::draw_frame(command_buffer_options &command_buff_opts) {
+  // wait for previous frame to finish by blocking execution
+  vkWaitForFences(m_device->get(), 1, &in_flight_fence, VK_TRUE, UINT64_MAX);
+  vkResetFences(m_device->get(), 1, &in_flight_fence);
+
+  // get the image from the swap chain
+  uint32_t image_index;
+  vkAcquireNextImageKHR(m_device->get(), m_swap_chain->get(), UINT64_MAX,
+                        image_available_semaphore, VK_NULL_HANDLE,
+                        &image_index);
+
+  // reset then record the command buffer for this frame
+  vkResetCommandBuffer(m_command_buffer->get(), 0);
+
+  m_command_buffer->record_command_buffer(command_buff_opts, image_index);
+
+  // submit the command buffer
+  VkSubmitInfo submit_info{};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+  VkSemaphore wait_semaphores[] = {image_available_semaphore};
+  VkPipelineStageFlags wait_stages[] = {
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+  submit_info.waitSemaphoreCount = 1;
+  submit_info.pWaitSemaphores = wait_semaphores;
+  submit_info.pWaitDstStageMask = wait_stages;
+
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &m_command_buffer->get();
+
+  VkSemaphore signal_semaphores[] = {render_finished_semaphore};
+  submit_info.signalSemaphoreCount = 1;
+  submit_info.pSignalSemaphores = signal_semaphores;
+
+  if (vkQueueSubmit(m_device->get_graphics_queue(), 1, &submit_info,
+                    in_flight_fence) != VK_SUCCESS) {
+    throw std::runtime_error("failed to submit draw command buffer!");
+  }
+
+  VkPresentInfoKHR present_info{};
+  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+  present_info.waitSemaphoreCount = 1;
+  present_info.pWaitSemaphores = signal_semaphores;
+
+  VkSwapchainKHR swap_chains[] = {m_swap_chain->get()};
+  present_info.swapchainCount = 1;
+  present_info.pSwapchains = swap_chains;
+  present_info.pImageIndices = &image_index;
+
+  vkQueuePresentKHR(m_device->get_present_queue(), &present_info);
+}
 
 eng::application::~application() {
+  vkDeviceWaitIdle(m_device->get());
+
   if (is_running()) {
     stop();
   }
 
+  delete m_command_buffer;
+  delete m_framebuffer;
   delete m_graphics_pipeline;
   delete m_swap_chain;
+
+  vkDestroySemaphore(m_device->get(), image_available_semaphore, nullptr);
+  vkDestroySemaphore(m_device->get(), render_finished_semaphore, nullptr);
+  vkDestroyFence(m_device->get(), in_flight_fence, nullptr);
+
   delete m_device;
   delete m_surface;
   delete m_instance;
@@ -48,37 +128,62 @@ void eng::application::start() {
     return;
   }
 
-  running = true;
-  main = std::thread([this] {
+  m_running = true;
+  m_main = std::thread([this] {
     m_window = new window(m_window_details);
 
-    m_instance->create_instance(name);
+    m_instance->create_instance(m_name);
 
     m_surface->create_surface(m_instance, m_window);
 
     m_device->create_device(m_instance, m_surface);
 
-    m_swap_chain->create_swap_chain(m_device, m_surface);
+    m_swap_chain->create_swap_chain(m_device, m_surface, m_window);
     m_swap_chain->create_image_views(m_device);
 
     m_graphics_pipeline->create_render_pass(m_device, m_swap_chain);
     m_graphics_pipeline->create_graphics_pipeline(m_device, m_swap_chain);
 
+    m_framebuffer->create_framebuffers(m_device, m_swap_chain,
+                                       m_graphics_pipeline);
+
+    m_command_buffer->create_command_pool(m_device);
+    m_command_buffer->create_command_buffer(m_device);
+
+    create_sync_objects();
+
+    command_buffer_options opts{};
+    opts.swap_chain = m_swap_chain;
+    opts.graphics_pipeline = m_graphics_pipeline;
+    opts.framebuffer = m_framebuffer;
+    opts.clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
+
+    uint16_t fps_frame_count = 0;
+
     while (!m_window->should_close() && is_running()) {
       m_window->poll_events();
+
+      draw_frame(opts);
+
+      fps_frame_count++;
+      if (fps_frame_count > 5000) {
+        std::cout << "FPS: " << 5000 / glfwGetTime() << "\n";
+        glffwSetTime(0);
+        fps_frame_count = 0;
+      }
 
       // main loop logic
     }
 
-    running = false;
+    m_running = false;
   });
 }
 
 void eng::application::stop() {
   std::cout << "Application Stopped" << std::endl;
 
-  running = false;
-  if (main.joinable()) {
-    main.join();
+  m_running = false;
+  if (m_main.joinable()) {
+    m_main.join();
   }
 }

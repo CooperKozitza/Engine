@@ -14,15 +14,15 @@ public:
   ~device();
 
   struct queue_family_indices {
-    std::optional<unsigned int> graphics_family;
-    std::optional<unsigned int> present_family;
+    std::optional<uint32_t> graphics_family;
+    std::optional<uint32_t> present_family;
 
     bool is_complete() {
       return graphics_family.has_value() && present_family.has_value();
     }
   };
 
-  void create_device(instance *m_instance, surface *m_surface);
+  void create_device(instance *inst, surface *surf);
 
   struct swap_chain_support_details {
     VkSurfaceCapabilitiesKHR capabilities;
@@ -30,19 +30,19 @@ public:
     std::vector<VkPresentModeKHR> present_modes;
   };
 
-  VkQueue get_graphics_queue() { return graphics_queue; };
-  VkQueue get_present_queue() { return present_queue; };
+  VkQueue &get_graphics_queue() { return m_graphics_queue; };
+  VkQueue &get_present_queue() { return m_present_queue; };
 
-  swap_chain_support_details get_swap_chain_support_details() {
+  swap_chain_support_details &get_swap_chain_support_details() {
     return m_swap_chain_support_details;
   };  
-  queue_family_indices get_queue_family_indices() {
+  queue_family_indices &get_queue_family_indices() {
     return m_queue_family_indices;
   };
 
 
-  VkPhysicalDevice get_physical_device() { return physical_device; };
-  VkDevice get() { return vulkan_device; };
+  VkPhysicalDevice &get_physical_device() { return m_physical_device; };
+  VkDevice &get() { return m_device; };
 
 private:
   /// <summary>
@@ -88,14 +88,13 @@ private:
   /// <param name="device">The physical device to check for support on</param>
   bool check_device_extention_support(VkPhysicalDevice device);
 
-  VkInstance vulkan_instance;
-  VkSurfaceKHR vulkan_surface;
+  VkInstance m_instance;
+  VkSurfaceKHR m_surface;
 
-  VkPhysicalDevice physical_device;
-  VkDevice vulkan_device;
+  VkPhysicalDevice m_physical_device;
+  VkDevice m_device;
 
-  VkQueue graphics_queue;
-  VkQueue present_queue;
+  VkQueue m_graphics_queue, m_present_queue;
 
   swap_chain_support_details m_swap_chain_support_details;
   queue_family_indices m_queue_family_indices;

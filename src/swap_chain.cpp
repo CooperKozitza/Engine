@@ -1,25 +1,27 @@
 #include "../include/swap_chain.hpp"
 
 eng::swap_chain::swap_chain()
-    : vulkan_swap_chain(VK_NULL_HANDLE), vulkan_device(VK_NULL_HANDLE),
-      vulkan_physical_device(VK_NULL_HANDLE), vulkan_surface(VK_NULL_HANDLE),
-      glfw_window(VK_NULL_HANDLE), images(),
-      image_format(), extent(), image_views() {
+    : m_swap_chain(VK_NULL_HANDLE), m_device(VK_NULL_HANDLE),
+      m_physical_device(VK_NULL_HANDLE), m_surface(VK_NULL_HANDLE),
+      m_window(VK_NULL_HANDLE), m_images(),
+      m_image_format(), m_extent(), m_image_views() {
 }
 
 eng::swap_chain::~swap_chain() {
-  if (vulkan_swap_chain != VK_NULL_HANDLE && vulkan_device != VK_NULL_HANDLE) {
-    for (auto image_view : image_views) {
-      vkDestroyImageView(vulkan_device, image_view, nullptr);
+  if (m_swap_chain != VK_NULL_HANDLE && m_device != VK_NULL_HANDLE) {
+    for (auto image_view : m_image_views) {
+      vkDestroyImageView(m_device, image_view, nullptr);
     }
 
-    vkDestroySwapchainKHR(vulkan_device, vulkan_swap_chain, nullptr);
+    vkDestroySwapchainKHR(m_device, m_swap_chain, nullptr);
   }
 }
 
-void eng::swap_chain::create_swap_chain(device *dev, surface *surf) {
-  vulkan_device = dev->get();
-  vulkan_surface = surf->get();
+void eng::swap_chain::create_swap_chain(device *dev, surface *surf,
+                                        window *win) {
+  m_device = dev->get();
+  m_surface = surf->get();
+  m_window = win->get();
 
   device::swap_chain_support_details swap_chain_support =
       dev->get_swap_chain_support_details();
@@ -28,9 +30,10 @@ void eng::swap_chain::create_swap_chain(device *dev, surface *surf) {
       choose_swap_surface_format(swap_chain_support.formats);
   VkPresentModeKHR present_mode =
       choose_present_mode(swap_chain_support.present_modes);
-  VkExtent2D extent = choose_swap_extent(swap_chain_support.capabilities);
 
-  unsigned int image_count = swap_chain_support.capabilities.minImageCount + 1;
+  m_extent = choose_swap_extent(swap_chain_support.capabilities);
+
+  uint32_t image_count = swap_chain_support.capabilities.minImageCount + 1;
   if (swap_chain_support.capabilities.maxImageCount > 0 &&
       image_count > swap_chain_support.capabilities.maxImageCount) {
     image_count = swap_chain_support.capabilities.maxImageCount;
@@ -38,12 +41,12 @@ void eng::swap_chain::create_swap_chain(device *dev, surface *surf) {
 
   VkSwapchainCreateInfoKHR create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  create_info.surface = vulkan_surface;
+  create_info.surface = m_surface;
 
   create_info.minImageCount = image_count;
   create_info.imageFormat = surface_format.format;
   create_info.imageColorSpace = surface_format.colorSpace;
-  create_info.imageExtent = extent;
+  create_info.imageExtent = m_extent;
   create_info.imageArrayLayers = 1;
   create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
@@ -66,33 +69,33 @@ void eng::swap_chain::create_swap_chain(device *dev, surface *surf) {
 
   create_info.oldSwapchain = VK_NULL_HANDLE;
 
-  if (vkCreateSwapchainKHR(vulkan_device, &create_info, nullptr,
-                           &vulkan_swap_chain) != VK_SUCCESS) {
+  if (vkCreateSwapchainKHR(m_device, &create_info, nullptr,
+                           &m_swap_chain) != VK_SUCCESS) {
     throw std::runtime_error("failed to create swap chain!");
   }
 
-  vkGetSwapchainImagesKHR(vulkan_device, vulkan_swap_chain, &image_count,
+  vkGetSwapchainImagesKHR(m_device, m_swap_chain, &image_count,
                           nullptr);
-  images.resize(image_count);
-  vkGetSwapchainImagesKHR(vulkan_device, vulkan_swap_chain, &image_count,
-                          images.data());
+  m_images.resize(image_count);
+  vkGetSwapchainImagesKHR(m_device, m_swap_chain, &image_count,
+                          m_images.data());
 
-  image_format = surface_format.format;
-  extent = extent;
+  m_image_format = surface_format.format;
+  m_extent = m_extent;
 }
 
 void eng::swap_chain::create_image_views(device *dev) {
-  vulkan_device = dev->get();
+  m_device = dev->get();
 
-  image_views.resize(images.size());
+  m_image_views.resize(m_images.size());
 
-  for (size_t i = 0; i < images.size(); i++) {
+  for (size_t i = 0; i < m_images.size(); i++) {
     VkImageViewCreateInfo create_info{};
 
     create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    create_info.image = images[i];
+    create_info.image = m_images[i];
     create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    create_info.format = image_format;
+    create_info.format = m_image_format;
     create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
     create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
     create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -103,8 +106,8 @@ void eng::swap_chain::create_image_views(device *dev) {
     create_info.subresourceRange.baseArrayLayer = 0;
     create_info.subresourceRange.layerCount = 1;
 
-    if (vkCreateImageView(vulkan_device, &create_info, nullptr,
-                          &image_views[i]) != VK_SUCCESS) {
+    if (vkCreateImageView(m_device, &create_info, nullptr,
+                          &m_image_views[i]) != VK_SUCCESS) {
       throw std::runtime_error("failed to create image views!");
     }
   }
@@ -125,7 +128,7 @@ VkSurfaceFormatKHR eng::swap_chain::choose_swap_surface_format(
 VkPresentModeKHR eng::swap_chain::choose_present_mode(
     const std::vector<VkPresentModeKHR> &available_present_modes) {
   for (const auto &available_present_mode : available_present_modes) {
-    if (available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+    if (available_present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
       return available_present_mode;
     }
   }
@@ -136,15 +139,15 @@ VkPresentModeKHR eng::swap_chain::choose_present_mode(
 VkExtent2D eng::swap_chain::choose_swap_extent(
     const VkSurfaceCapabilitiesKHR &capabilities) {
   if (capabilities.currentExtent.width !=
-      std::numeric_limits<unsigned int>::max()) {
+      std::numeric_limits<uint32_t>::max()) {
     return capabilities.currentExtent;
   } else {
     int width, height;
 
-    glfwGetFramebufferSize(glfw_window, &width, &height);
+    glfwGetFramebufferSize(m_window, &width, &height);
 
-    VkExtent2D actual_extent = {static_cast<unsigned int>(width),
-                                static_cast<unsigned int>(height)};
+    VkExtent2D actual_extent = {static_cast<uint32_t>(width),
+                                static_cast<uint32_t>(height)};
 
     actual_extent.width =
         std::clamp(actual_extent.width, capabilities.minImageExtent.width,

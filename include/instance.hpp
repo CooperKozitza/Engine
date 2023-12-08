@@ -42,8 +42,8 @@ public:
   /// window</param>
   void create_instance(const char *application_name);
 
-  VkInstance get();
-  VkDebugUtilsMessengerEXT get_debug_messenger();
+  VkInstance &get();
+  VkDebugUtilsMessengerEXT &get_debug_messenger();
 
 private:
   /// <summary>
@@ -65,7 +65,7 @@ private:
   /// <param name="debugMessenger">The messenger to destroy</param>
   void
   destroy_debug_utils_messenger_ext(VkInstance instance,
-                                    VkDebugUtilsMessengerEXT debug_messenger,
+                                    VkDebugUtilsMessengerEXT m_debug_messenger,
                                     const VkAllocationCallbacks *p_allocator);
 
   /// <summary>
@@ -104,6 +104,6 @@ private:
   void setup_debug_messenger();
 
   VkInstance m_instance;
-  VkDebugUtilsMessengerEXT debug_messenger;
+  VkDebugUtilsMessengerEXT m_debug_messenger;
 };
 } // namespace eng

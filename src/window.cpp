@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-eng::window::window() : glfw_window(nullptr) { 
+eng::window::window() : m_window(nullptr) { 
     glfwInit(); 
     glfwSetErrorCallback([](int code, const char *description) {
       std::cerr << "A GLFW Error Occured (Error: " << code << ')' << std::endl;
@@ -11,11 +11,11 @@ eng::window::window() : glfw_window(nullptr) {
 }
 
 eng::window::~window() {
-  glfwDestroyWindow(glfw_window);
+  glfwDestroyWindow(m_window);
   glfwTerminate();
 }
 
-eng::window::window(const vec2<unsigned int> &res, const char *title)
+eng::window::window(const vec2<uint32_t> &res, const char *title)
     : window() {
   initialize(res, title);
 }
@@ -25,9 +25,9 @@ eng::window::window(const eng::window_details &details)
   initialize(details.resolution, details.title);
 }
 
-void eng::window::initialize(const vec2<unsigned int> &res, const char *title) {
-  if (glfw_window) {
-    glfwDestroyWindow(glfw_window);
+void eng::window::initialize(const vec2<uint32_t> &res, const char *title) {
+  if (m_window) {
+    glfwDestroyWindow(m_window);
   }
 
   // use vulkan
@@ -35,5 +35,5 @@ void eng::window::initialize(const vec2<unsigned int> &res, const char *title) {
   // make window not resizable
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-  glfw_window = glfwCreateWindow(res.x, res.y, title, nullptr, nullptr);
+  m_window = glfwCreateWindow(res.x, res.y, title, nullptr, nullptr);
 }

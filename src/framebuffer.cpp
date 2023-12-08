@@ -1,7 +1,21 @@
 #include "../include/framebuffer.hpp"
 
-void eng::framebuffer::create_framebuffers(device *dev, swap_chain *sc, graphics_pipeline *gp) {
-  framebuffers.resize(sc->get_image_views().size());
+eng::framebuffer::framebuffer() : m_device(VK_NULL_HANDLE), m_framebuffers() {}
+
+eng::framebuffer::~framebuffer() {
+  if (m_device != VK_NULL_HANDLE) {
+    for (VkFramebuffer &framebuff : m_framebuffers) {
+      if (framebuff != VK_NULL_HANDLE) {
+        vkDestroyFramebuffer(m_device, framebuff, nullptr);
+      }
+    }
+  }
+}
+
+void eng::framebuffer::create_framebuffers(device *dev, swap_chain *sc,
+                                           graphics_pipeline *gp) {
+  m_device = dev->get();
+  m_framebuffers.resize(sc->get_image_views().size());
 
   for (size_t i = 0; i < sc->get_image_views().size(); i++) {
     VkImageView attachments[] = {sc->get_image_views()[i]};
@@ -15,8 +29,8 @@ void eng::framebuffer::create_framebuffers(device *dev, swap_chain *sc, graphics
     framebufferInfo.height = sc->get_extent().height;
     framebufferInfo.layers = 1;
 
-    if (vkCreateFramebuffer(dev->get(), &framebufferInfo, nullptr,
-                            &framebuffers[i]) != VK_SUCCESS) {
+    if (vkCreateFramebuffer(m_device, &framebufferInfo, nullptr,
+                            &m_framebuffers[i]) != VK_SUCCESS) {
       throw std::runtime_error("failed to create framebuffer!");
     }
   }

@@ -19,17 +19,17 @@ public:
 
   bool required_shaders_set();
 
-  VkPipeline get() { return vulkan_graphics_pipeline; };
-  VkPipelineLayout get_layout() { return pipeline_layout; };
-  VkRenderPass get_render_pass() { return render_pass; };
+  VkPipeline &get() { return m_graphics_pipeline; };
+  VkPipelineLayout &get_layout() { return m_pipeline_layout; };
+  VkRenderPass &get_render_pass() { return m_render_pass; };
 
 private:
-  VkRenderPass render_pass;
-  VkPipelineLayout pipeline_layout;
-  VkPipeline vulkan_graphics_pipeline;
+  VkRenderPass m_render_pass;
+  VkPipelineLayout m_pipeline_layout;
+  VkPipeline m_graphics_pipeline;
 
-  VkDevice vulkan_device;
+  VkDevice m_device;
 
-  std::vector<shader *> shaders;
+  std::vector<shader *> m_shaders;
 };
 } // namespace eng

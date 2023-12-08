@@ -20,11 +20,13 @@
 #include "device.hpp"
 #include "swap_chain.hpp"
 #include "graphics_pipeline.hpp"
+#include "framebuffer.hpp"
+#include "command_buffer.hpp"
 
 namespace eng {
 class application {
 public:
-  static application *create(const vec2<unsigned int> &res, const char *title);
+  static application *create(const vec2<uint32_t> &res, const char *title);
   static application *get() { return app; }
 
   application(const application &) = delete;
@@ -37,28 +39,28 @@ public:
   void start();
   void stop();
 
-  bool is_running() { return running; }
+  bool is_running() { return m_running; }
 
 private:
-  application(const vec2<unsigned int> res, const char *name);
+  application(const vec2<uint32_t> res, const char *name);
   static application *app;
 
   // helper funcs:
-
-  void uninitialize_vulkan();
+  void create_sync_objects();
+  void draw_frame(command_buffer_options &command_buff_opts);
 
   // prevents two threads from simultaneously creating an application
   // instance
   static std::mutex creation_mutex;
 
   // flag for whether or not the application is running (used to stop thread)
-  std::atomic<bool> running;
+  std::atomic<bool> m_running;
 
   // the thread where the main loop runs, defined in start()
-  std::thread main;
+  std::thread m_main;
 
   // the name of the application
-  const char *name;
+  const char *m_name;
 
   // the glfw window instance
   window_details m_window_details;
@@ -78,5 +80,16 @@ private:
 
   // the vulkan graphics pipeline and render pass
   graphics_pipeline *m_graphics_pipeline;
+
+  // the swap chain framebuffer
+  framebuffer *m_framebuffer;
+
+  // the command pool and command buffer
+  command_buffer *m_command_buffer;
+
+  // synchronization
+  VkSemaphore image_available_semaphore;
+  VkSemaphore render_finished_semaphore;
+  VkFence in_flight_fence;
 };
 } // namespace eng

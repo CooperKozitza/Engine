@@ -2831,7 +2831,7 @@ GLFWAPI void glfwSetWindowTitle(GLFWwindow* window, const char* title);
  *
  *  @ingroup window
  */
-GLFWAPI void glfwSetWindowIcon(GLFWwindow* window, int count, const GLFWimage* images);
+GLFWAPI void glfwSetWindowIcon(GLFWwindow* window, int count, const GLFWimage* m_images);
 
 /*! @brief Retrieves the position of the content area of the specified window.
  *

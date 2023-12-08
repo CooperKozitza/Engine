@@ -11,10 +11,12 @@ public:
 
   void create_framebuffers(device *dev, swap_chain *sc, graphics_pipeline *gp);
 
-  std::vector<VkFramebuffer> get() { return framebuffers; };
-  VkFramebuffer get_framebuffer(size_t index) { return framebuffers[index]; };
+  std::vector<VkFramebuffer> &get() { return m_framebuffers; };
+  VkFramebuffer &get_framebuffer(size_t index) { return m_framebuffers[index]; };
 
 private:
-  std::vector<VkFramebuffer> framebuffers;
+  VkDevice m_device;
+
+  std::vector<VkFramebuffer> m_framebuffers;
 };
 } // namespace eng
