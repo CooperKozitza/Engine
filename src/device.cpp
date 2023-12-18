@@ -11,9 +11,9 @@ eng::device::~device() {
   }
 }
 
-void eng::device::create_device(instance *inst, surface *surf) {
-  m_instance = inst->get();
-  m_surface = surf->get();
+void eng::device::create_device(instance &inst, surface &surf) {
+  m_instance = inst.get_instance();
+  m_surface = surf.get_surface();
 
   pick_physical_device();
   create_logical_device();
@@ -114,8 +114,9 @@ uint32_t eng::device::find_memory_type(uint32_t type_filter,
   vkGetPhysicalDeviceMemoryProperties(m_physical_device, &mem_properties);
 
   for (uint32_t i = 0; i < mem_properties.memoryTypeCount; i++) {
-    if ((type_filter & (1 << i)) && (mem_properties.memoryTypes[i].propertyFlags &
-                                    properties) == properties) {
+    if ((type_filter & (1 << i)) &&
+        (mem_properties.memoryTypes[i].propertyFlags & properties) ==
+            properties) {
       return i;
     }
   }
@@ -123,7 +124,7 @@ uint32_t eng::device::find_memory_type(uint32_t type_filter,
   throw std::runtime_error("failed to find suitable memory type!");
 }
 
-eng::device::queue_family_indices
+eng::queue_family_indices
 eng::device::find_queue_families(VkPhysicalDevice device) {
   queue_family_indices indices;
 
@@ -159,7 +160,73 @@ eng::device::find_queue_families(VkPhysicalDevice device) {
   return indices;
 }
 
-eng::device::swap_chain_support_details
+void eng::device::create_buffer(buffer_create_options &opts) {
+  VkBufferCreateInfo buffer_info{};
+  buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  buffer_info.size = opts.size;
+  buffer_info.usage = opts.usage;
+  buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  if (vkCreateBuffer(m_device, &buffer_info, nullptr, opts.buffer) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("failed to create buffer!");
+  }
+
+  VkMemoryRequirements mem_requirements;
+  vkGetBufferMemoryRequirements(m_device, *(opts.buffer), &mem_requirements);
+
+  VkMemoryAllocateInfo alloc_info{};
+  alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  alloc_info.allocationSize = mem_requirements.size;
+  alloc_info.memoryTypeIndex =
+      find_memory_type(mem_requirements.memoryTypeBits, opts.properties);
+
+  if (vkAllocateMemory(m_device, &alloc_info, nullptr, opts.buffer_memory) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("failed to allocate buffer memory!");
+  }
+
+  vkBindBufferMemory(m_device, *(opts.buffer), *(opts.buffer_memory), 0);
+}
+
+void eng::device::copy_buffer(VkCommandPool pool, VkBuffer src, VkBuffer dst,
+                              VkDeviceSize size) {
+  VkCommandBufferAllocateInfo alloc_info{};
+  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  alloc_info.commandPool = pool;
+  alloc_info.commandBufferCount = 1;
+
+  VkCommandBuffer command_buffer;
+  vkAllocateCommandBuffers(m_device, &alloc_info, &command_buffer);
+
+  VkCommandBufferBeginInfo begin_info{};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  vkBeginCommandBuffer(command_buffer, &begin_info);
+
+  VkBufferCopy copy_region{};
+  copy_region.srcOffset = 0;
+  copy_region.dstOffset = 0;
+  copy_region.size = size;
+
+  vkCmdCopyBuffer(command_buffer, src, dst, 1, &copy_region);
+
+  vkEndCommandBuffer(command_buffer);
+
+  VkSubmitInfo submit_info{};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &command_buffer;
+
+  vkQueueSubmit(get_graphics_queue(), 1, &submit_info, VK_NULL_HANDLE);
+  vkQueueWaitIdle(get_graphics_queue());
+
+  vkFreeCommandBuffers(m_device, pool, 1, &command_buffer);
+}
+
+eng::swap_chain_support_details
 eng::device::query_swap_chain_support(VkPhysicalDevice device) {
   swap_chain_support_details details;
 
@@ -182,9 +249,8 @@ eng::device::query_swap_chain_support(VkPhysicalDevice device) {
 
   if (present_mode_count != 0) {
     details.present_modes.resize(present_mode_count);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface,
-                                              &present_mode_count,
-                                              details.present_modes.data());
+    vkGetPhysicalDeviceSurfacePresentModesKHR(
+        device, m_surface, &present_mode_count, details.present_modes.data());
   }
 
   return details;
@@ -194,8 +260,8 @@ void eng::device::create_logical_device(const float queue_priority) {
   queue_family_indices indices = find_queue_families(m_physical_device);
 
   std::vector<VkDeviceQueueCreateInfo> queue_create_infos{};
-  std::set<uint32_t> unique_queue_families = {
-      indices.graphics_family.value(), indices.present_family.value()};
+  std::set<uint32_t> unique_queue_families = {indices.graphics_family.value(),
+                                              indices.present_family.value()};
 
   for (uint32_t queue_family : unique_queue_families) {
     VkDeviceQueueCreateInfo queue_create_info{};

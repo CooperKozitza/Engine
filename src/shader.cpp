@@ -1,9 +1,17 @@
 #include "../include/shader.hpp"
 
-eng::shader::shader() : m_module(VK_NULL_HANDLE), m_file_path(nullptr) {}
+eng::shader::shader()
+    : m_device(VK_NULL_HANDLE), m_module(VK_NULL_HANDLE), m_file_path(nullptr),
+      m_type() {}
 
 eng::shader::shader(const char *m_file_path, shader_type type)
     : m_module(VK_NULL_HANDLE), m_file_path(m_file_path), m_type(type) {}
+
+eng::shader::~shader() {
+  if (m_device != VK_NULL_HANDLE) {
+    destroy_shader_module();
+  }
+}
 
 std::vector<char> eng::shader::read_file(const char *m_file_path) {
   std::ifstream file(m_file_path, std::ios::ate | std::ios::binary);
@@ -23,7 +31,9 @@ std::vector<char> eng::shader::read_file(const char *m_file_path) {
   return buffer;
 }
 
-VkShaderModule eng::shader::create_shader_module(device *dev) {
+VkShaderModule eng::shader::create_shader_module(device &dev) {
+  m_device = dev.get_device();
+
   std::vector<char> code = read_file(m_file_path);
 
   VkShaderModuleCreateInfo create_info{};
@@ -31,7 +41,7 @@ VkShaderModule eng::shader::create_shader_module(device *dev) {
   create_info.codeSize = code.size();
   create_info.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
-  if (vkCreateShaderModule(dev->get(), &create_info, nullptr, &m_module) !=
+  if (vkCreateShaderModule(m_device, &create_info, nullptr, &m_module) !=
       VK_SUCCESS) {
     throw std::runtime_error("failed to create shader module!");
   }
@@ -39,8 +49,8 @@ VkShaderModule eng::shader::create_shader_module(device *dev) {
   return m_module;
 }
 
-void eng::shader::destroy_shader_module(device *dev) {
-  vkDestroyShaderModule(dev->get(), m_module, nullptr);
+void eng::shader::destroy_shader_module() {
+  vkDestroyShaderModule(m_device, m_module, nullptr);
 }
 
 VkShaderModule eng::shader::get_shader_module() { return m_module; }

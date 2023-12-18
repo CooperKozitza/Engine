@@ -4,12 +4,12 @@
 
 #include <vulkan/vulkan.h>
 
-#include "vectors.hpp"
+#include <glm/glm.hpp>
 
 namespace eng {
 struct vertex {
-  vec2<float> pos;
-  color color;
+  glm::vec2 pos;
+  glm::vec3 color;
 
   static VkVertexInputBindingDescription get_binding_properties() {
     VkVertexInputBindingDescription binding_description{};

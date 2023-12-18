@@ -8,43 +8,55 @@
 #include "surface.hpp"
 
 namespace eng {
+struct buffer_create_options {
+  VkDeviceSize size;
+  VkBufferUsageFlags usage;
+  VkMemoryPropertyFlags properties;
+  VkBuffer *buffer;
+  VkDeviceMemory *buffer_memory;
+};
+
+struct queue_family_indices {
+  std::optional<uint32_t> graphics_family;
+  std::optional<uint32_t> present_family;
+
+  bool is_complete() {
+    return graphics_family.has_value() && present_family.has_value();
+  }
+};
+
+struct swap_chain_support_details {
+  VkSurfaceCapabilitiesKHR capabilities;
+  std::vector<VkSurfaceFormatKHR> formats;
+  std::vector<VkPresentModeKHR> present_modes;
+};
+
 class device {
 public:
   device();
   ~device();
 
-  struct queue_family_indices {
-    std::optional<uint32_t> graphics_family;
-    std::optional<uint32_t> present_family;
-
-    bool is_complete() {
-      return graphics_family.has_value() && present_family.has_value();
-    }
-  };
-
-  void create_device(instance *inst, surface *surf);
-
-  struct swap_chain_support_details {
-    VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> present_modes;
-  };
+  void create_device(instance &inst, surface &surf);
 
   VkQueue &get_graphics_queue() { return m_graphics_queue; };
   VkQueue &get_present_queue() { return m_present_queue; };
 
   swap_chain_support_details &get_swap_chain_support_details() {
     return m_swap_chain_support_details;
-  };  
+  };
   queue_family_indices &get_queue_family_indices() {
     return m_queue_family_indices;
   };
 
   VkPhysicalDevice &get_physical_device() { return m_physical_device; };
-  VkDevice &get() { return m_device; };
+  VkDevice &get_device() { return m_device; };
 
   uint32_t find_memory_type(uint32_t type_filter,
-                          VkMemoryPropertyFlags properties);
+                            VkMemoryPropertyFlags properties);
+
+  void create_buffer(buffer_create_options &opts);
+  void copy_buffer(VkCommandPool pool, VkBuffer src, VkBuffer dst,
+                   VkDeviceSize size);
 
 private:
   /// <summary>
@@ -62,8 +74,7 @@ private:
   /// <param name="device">The physical device to check</param>
   /// <returns>A struct with the details of the swap chain the device can
   /// support</returns>
-  swap_chain_support_details
-  query_swap_chain_support(VkPhysicalDevice device);
+  swap_chain_support_details query_swap_chain_support(VkPhysicalDevice device);
 
   /// <summary>
   /// Gathers the available devices and picks the best one

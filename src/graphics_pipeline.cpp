@@ -1,16 +1,20 @@
 #include "../include/graphics_pipeline.hpp"
 
-eng::graphics_pipeline::graphics_pipeline()
-    : m_render_pass(VK_NULL_HANDLE), m_pipeline_layout(VK_NULL_HANDLE),
-      m_graphics_pipeline(VK_NULL_HANDLE), m_shaders() {}
+eng::pipeline::pipeline()
+    : m_render_pass(VK_NULL_HANDLE), m_descriptor_set_layout(VK_NULL_HANDLE),
+      m_pipeline_layout(VK_NULL_HANDLE), m_graphics_pipeline(VK_NULL_HANDLE),
+      m_shaders() {}
 
-eng::graphics_pipeline::~graphics_pipeline() {
+eng::pipeline::~pipeline() {
   for (auto s : m_shaders) {
     if (s) {
       delete s;
     }
   }
 
+  if (m_descriptor_set_layout != VK_NULL_HANDLE) {
+    vkDestroyDescriptorSetLayout(m_device, m_descriptor_set_layout, nullptr);
+  }
   if (m_graphics_pipeline != VK_NULL_HANDLE) {
     vkDestroyPipeline(m_device, m_graphics_pipeline, nullptr);
   }
@@ -22,7 +26,7 @@ eng::graphics_pipeline::~graphics_pipeline() {
   }
 }
 
-void eng::graphics_pipeline::set_shader(const char *file_path,
+void eng::pipeline::add_shader(const char *file_path,
                                         shader_type type) {
   if (!m_shaders.empty()) {
     std::vector<shader *>::iterator duplacate =
@@ -43,8 +47,25 @@ void eng::graphics_pipeline::set_shader(const char *file_path,
   m_shaders.push_back(new shader(file_path, type));
 }
 
-void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
-                                                      swap_chain *sc) {
+void eng::pipeline::create_descriptor_set_layout(device &dev) {
+  m_device = dev.get_device();
+
+  VkDescriptorSetLayoutBinding ubo_layout_binding =
+      uniform_buffer_object::get_descriptor_set_layout_binding();
+
+  VkDescriptorSetLayoutCreateInfo layout_info{};
+  layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  layout_info.bindingCount = 1;
+  layout_info.pBindings = &ubo_layout_binding;
+
+  if (vkCreateDescriptorSetLayout(m_device, &layout_info, nullptr,
+                                  &m_descriptor_set_layout) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create descriptor set layout!");
+  }
+}
+
+void eng::pipeline::create_graphics_pipeline(device &dev,
+                                                      swap_chain &sc) {
   std::vector<shader *>::iterator vert_shader_pos =
       std::find_if(m_shaders.begin(), m_shaders.end(),
                    [](shader *x) { return x->get_type() == VERTEX; });
@@ -58,7 +79,7 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
     throw std::runtime_error("could not find required shaders");
   }
 
-  m_device = dev->get();
+  m_device = dev.get_device();
 
   VkShaderModule vert_shder_module =
       (*vert_shader_pos)->create_shader_module(dev);
@@ -82,10 +103,8 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
   VkPipelineShaderStageCreateInfo shader_stages[] = {vert_shader_stage_info,
                                                      frag_shader_stage_info};
 
-  auto binding_description =
-      vertex::get_binding_properties();
-  auto attribute_description =
-      vertex::get_attribute_description();
+  auto binding_description = vertex::get_binding_properties();
+  auto attribute_description = vertex::get_attribute_description();
 
   VkPipelineVertexInputStateCreateInfo vertex_input_info{};
   vertex_input_info.sType =
@@ -93,7 +112,8 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
   vertex_input_info.vertexBindingDescriptionCount = 1;
   vertex_input_info.pVertexBindingDescriptions = &binding_description;
 
-  vertex_input_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_description.size());
+  vertex_input_info.vertexAttributeDescriptionCount =
+      static_cast<uint32_t>(attribute_description.size());
   vertex_input_info.pVertexAttributeDescriptions = attribute_description.data();
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly{};
@@ -102,17 +122,19 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
   input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   input_assembly.primitiveRestartEnable = VK_FALSE;
 
+  VkExtent2D extent = sc.get_extent();
+
   VkViewport viewport{};
   viewport.x = 0.0f;
   viewport.y = 0.0f;
-  viewport.width = (float)sc->get_extent().width;
-  viewport.height = (float)sc->get_extent().height;
+  viewport.width = (float)extent.width;
+  viewport.height = (float)extent.height;
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
 
   VkRect2D scissor{};
   scissor.offset = {0, 0};
-  scissor.extent = sc->get_extent();
+  scissor.extent = extent;
 
   std::vector<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT,
                                                 VK_DYNAMIC_STATE_SCISSOR};
@@ -135,7 +157,7 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
   rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
   rasterizer.lineWidth = 1.0f;
   rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-  rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterizer.depthBiasEnable = VK_FALSE;
   rasterizer.depthBiasConstantFactor = 0.0f; // Optional
   rasterizer.depthBiasClamp = 0.0f;          // Optional
@@ -171,8 +193,8 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
 
   VkPipelineLayoutCreateInfo pipeline_layout_info{};
   pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipeline_layout_info.setLayoutCount = 0;            // Optional
-  pipeline_layout_info.pSetLayouts = nullptr;         // Optional
+  pipeline_layout_info.setLayoutCount = 1;
+  pipeline_layout_info.pSetLayouts = &m_descriptor_set_layout;
   pipeline_layout_info.pushConstantRangeCount = 0;    // Optional
   pipeline_layout_info.pPushConstantRanges = nullptr; // Optional
 
@@ -207,17 +229,17 @@ void eng::graphics_pipeline::create_graphics_pipeline(device *dev,
     throw std::runtime_error("failed to create graphics pipeline!");
   }
 
-  (*vert_shader_pos)->destroy_shader_module(dev);
-  (*frag_shader_pos)->destroy_shader_module(dev);
+  (*vert_shader_pos)->destroy_shader_module();
+  (*frag_shader_pos)->destroy_shader_module();
 
   std::cout << "Created Graphics Pipeline" << std::endl;
 }
 
-void eng::graphics_pipeline::create_render_pass(device *dev, swap_chain *sc) {
-  m_device = dev->get();
+void eng::pipeline::create_render_pass(device &dev, swap_chain &sc) {
+  m_device = dev.get_device();
 
   VkAttachmentDescription color_attachment{};
-  color_attachment.format = sc->get_image_format();
+  color_attachment.format = sc.get_image_format();
   color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
 
   color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -264,7 +286,7 @@ void eng::graphics_pipeline::create_render_pass(device *dev, swap_chain *sc) {
   }
 }
 
-bool eng::graphics_pipeline::required_shaders_set() {
+bool eng::pipeline::required_shaders_set() {
   bool has_vert_shaders =
       std::any_of(m_shaders.begin(), m_shaders.end(),
                   [](shader *x) { return x->get_type() == VERTEX; });

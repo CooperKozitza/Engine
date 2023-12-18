@@ -15,15 +15,15 @@ public:
   /// <summary>
   /// Creates the swap chain
   /// </summary>
-  void create_swap_chain(device *dev, surface *surf, window *win);
+  void create_swap_chain(device &dev, surface &surf, window &win);
 
   /// <summary>
   /// Initialized each of the image views for each of the images in the swap
   /// chain
   /// </summary>
-  void create_image_views(device *dev);
+  void create_image_views(device &dev);
 
-  VkSwapchainKHR &get() { return m_swap_chain; };
+  VkSwapchainKHR &get_swapchain() { return m_swap_chain; };
 
   std::vector<VkImage> &get_images() { return m_images; };
   std::vector<VkImageView> &get_image_views() {

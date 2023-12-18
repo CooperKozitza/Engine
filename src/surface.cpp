@@ -9,9 +9,9 @@ eng::surface::~surface() {
   }
 }
 
-void eng::surface::create_surface(instance *inst, window *win) {
-  m_instance = inst->get();
-  GLFWwindow *m_window = win->get();
+void eng::surface::create_surface(instance &inst, window &win) {
+  m_instance = inst.get_instance();
+  GLFWwindow *m_window = win.get_window();
 
   if (glfwCreateWindowSurface(m_instance, m_window, nullptr,
                               &m_surface) != VK_SUCCESS) {

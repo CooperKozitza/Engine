@@ -9,9 +9,9 @@ public:
   framebuffer();
   ~framebuffer();
 
-  void create_framebuffers(device *dev, swap_chain *sc, graphics_pipeline *gp);
+  void create_framebuffers(device &dev, swap_chain &sc, pipeline &gp);
 
-  std::vector<VkFramebuffer> &get() { return m_framebuffers; };
+  std::vector<VkFramebuffer> &get_framebuffers() { return m_framebuffers; };
   VkFramebuffer &get_framebuffer(size_t index) { return m_framebuffers[index]; };
 
 private:

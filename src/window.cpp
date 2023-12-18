@@ -15,7 +15,7 @@ eng::window::~window() {
   glfwTerminate();
 }
 
-eng::window::window(const vec2<uint32_t> &res, const char *title)
+eng::window::window(const glm::uvec2 &res, const char *title)
     : window() {
   initialize(res, title);
 }
@@ -25,7 +25,7 @@ eng::window::window(const eng::window_details &details)
   initialize(details.resolution, details.title);
 }
 
-void eng::window::initialize(const vec2<uint32_t> &res, const char *title) {
+void eng::window::initialize(const glm::uvec2 &res, const char *title) {
   if (m_window) {
     glfwDestroyWindow(m_window);
   }

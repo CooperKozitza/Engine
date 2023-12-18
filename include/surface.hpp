@@ -12,9 +12,9 @@ public:
   /// <summary>
   /// Uses the window to create a VkSurfaceKHR
   /// </summary>
-  void create_surface(instance *inst, window *win);
+  void create_surface(instance &inst, window &win);
 
-  VkSurfaceKHR &get() { return m_surface; }
+  VkSurfaceKHR &get_surface() { return m_surface; }
 
 private:
   VkInstance m_instance;

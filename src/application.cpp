@@ -4,73 +4,104 @@ eng::application *eng::application::app;
 
 std::mutex eng::application::creation_mutex;
 
-eng::application *eng::application::create(const vec2<uint32_t> &res,
+eng::application *eng::application::create(const glm::uvec2 &res,
                                            const char *title) {
   std::lock_guard<std::mutex> guard(creation_mutex);
   if (!app) {
     app = new application(res, title);
+    app->initialize();
   }
 
   return app;
 }
 
-eng::application::application(const vec2<uint32_t> res, const char *name)
-    : m_window_details(res, name), m_window(nullptr), m_name(name),
-      current_frame(), m_instance(new instance()), m_surface(new surface()),
-      m_device(new device()), m_swap_chain(new swap_chain()),
-      m_graphics_pipeline(new graphics_pipeline()),
-      m_framebuffer(new framebuffer()),
-      m_command_buffers(new command_buffers()),
-      m_vertex_buffer(new vertex_buffer()) {
+eng::application::application(const glm::uvec2 res, const char *name)
+    : m_window_details(res, name), m_name(name), m_objects() {}
+
+void eng::application::initialize() {
+  m_renderer = std::make_unique<vulkan_renderer>();
+}
+
+eng::application::~application() {}
+
+void eng::application::add_shader(const char *file_path, shader_type type) {
+  m_renderer->add_shader(file_path, type);
+}
+
+void eng::application::start() {
+  m_renderer->start_rendering(m_window_details);
+}
+
+void eng::application::stop() { m_renderer->stop_rendering(); }
+
+bool eng::application::is_running() { return m_renderer->is_rendering(); }
+
+eng::renderer::renderer()
+    : m_current_frame(), m_should_close(false), m_is_running(false) {
+  m_application = application::get();
+}
+
+eng::vulkan_renderer::vulkan_renderer() : renderer(), m_delta_time() {
+  m_instance = std::make_unique<instance>();
+  m_surface = std::make_unique<surface>();
+  m_device = std::make_unique<device>();
+
+  m_swap_chain = std::make_unique<swap_chain>();
+  m_pipeline = std::make_unique<pipeline>();
+  m_framebuffer = std::make_unique<framebuffer>();
+
+  m_command_pool = std::make_unique<command_pool>();
+
+  m_descriptor_pool = std::make_unique<descriptor_pool>();
+
   image_available_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
   render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
   in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
+
+  m_last_frame_end = std::chrono::high_resolution_clock::now();
 }
 
-void eng::application::initialize_vulkan() {
-  m_instance->create_instance(m_name);
+eng::vulkan_renderer::~vulkan_renderer() {
+  vkDeviceWaitIdle(m_device->get_device());
 
-  m_surface->create_surface(m_instance, m_window);
-
-  m_device->create_device(m_instance, m_surface);
-
-  m_swap_chain->create_swap_chain(m_device, m_surface, m_window);
-  m_swap_chain->create_image_views(m_device);
-
-  m_graphics_pipeline->create_render_pass(m_device, m_swap_chain);
-  m_graphics_pipeline->create_graphics_pipeline(m_device, m_swap_chain);
-
-  m_framebuffer->create_framebuffers(m_device, m_swap_chain,
-                                     m_graphics_pipeline);
-
-  m_command_buffers->create_command_pool(m_device);
-  m_command_buffers->create_command_buffers(m_device, MAX_FRAMES_IN_FLIGHT);
-
-  std::vector<vertex> verts;
-
-  verts.push_back({{-0.5f, -0.5f}, {0.0f, 1.0f, 0.0f, 0.5f}});
-  verts.push_back({{0.5f, -0.5f}, {0.0f, 0.0f, 1.0f, 0.5f}});
-  verts.push_back({{0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.5f}});
-
-  verts.push_back({{-0.5f, -0.5f}, {0.0f, 1.0f, 0.0f, 0.5f}});
-  verts.push_back({{0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.5f}});
-  verts.push_back({{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f, 0.5f}});
-
-   verts.push_back({{-0.5f, 0.5f}, {0.0f, 1.0f, 0.0f, 0.5f}});
-  verts.push_back({{0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.5f}});
-  verts.push_back({{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f, 0.5f}});
-
-  verts.push_back({{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f, 0.5f}});
-  verts.push_back({{0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.5f}});
-  verts.push_back({{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f, 0.5f}});
-
-  m_vertex_buffer->set_vertices(verts);
-  m_vertex_buffer->create_vertex_buffer(m_device);
-
-  create_sync_objects();
+  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+    vkDestroySemaphore(m_device->get_device(), image_available_semaphores[i],
+                       nullptr);
+    vkDestroySemaphore(m_device->get_device(), render_finished_semaphores[i],
+                       nullptr);
+    vkDestroyFence(m_device->get_device(), in_flight_fences[i], nullptr);
+  }
 }
 
-void eng::application::create_sync_objects() {
+void eng::vulkan_renderer::initialize(window_details &window_details) {
+  m_window = std::make_unique<window>(window_details);
+
+  m_instance->create_instance(window_details.title);
+  m_surface->create_surface(*m_instance, *m_window);
+  m_device->create_device(*m_instance, *m_surface);
+
+  m_swap_chain->create_swap_chain(*m_device, *m_surface, *m_window);
+  m_swap_chain->create_image_views(*m_device);
+
+  m_pipeline->create_render_pass(*m_device, *m_swap_chain);
+  m_pipeline->create_descriptor_set_layout(*m_device);
+  m_pipeline->create_graphics_pipeline(*m_device, *m_swap_chain);
+
+  m_framebuffer->create_framebuffers(*m_device, *m_swap_chain, *m_pipeline);
+
+  m_command_pool->create_command_pool(*m_device);
+  m_command_pool->create_command_buffers(*m_device, MAX_FRAMES_IN_FLIGHT);
+
+  uint32_t object_count =
+      static_cast<uint32_t>(m_application->get_object_count());
+  m_descriptor_pool->create_descriptor_pool(*m_device, object_count);
+
+  for (size_t i = 0; i < object_count; ++i) {
+    // m_descriptor_pool->create_descriptor_set(*m_device, *m_pipeline, )
+  }
+
+  // synchronization object creation
+
   VkSemaphoreCreateInfo semaphore_info{};
   semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -79,42 +110,104 @@ void eng::application::create_sync_objects() {
   fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    if (vkCreateSemaphore(m_device->get(), &semaphore_info, nullptr,
+    if (vkCreateSemaphore(m_device->get_device(), &semaphore_info, nullptr,
                           &image_available_semaphores[i]) != VK_SUCCESS ||
-        vkCreateSemaphore(m_device->get(), &semaphore_info, nullptr,
+        vkCreateSemaphore(m_device->get_device(), &semaphore_info, nullptr,
                           &render_finished_semaphores[i]) != VK_SUCCESS ||
-        vkCreateFence(m_device->get(), &fence_info, nullptr,
+        vkCreateFence(m_device->get_device(), &fence_info, nullptr,
                       &in_flight_fences[i]) != VK_SUCCESS) {
-
       throw std::runtime_error(
           "failed to create synchronization objects for a frame!");
     }
   }
 }
 
-void eng::application::draw_frame(command_buffer_options &command_buff_opts) {
+void eng::vulkan_renderer::render_frame() {
+  VkDevice device = m_device->get_device();
+  VkCommandBuffer command_buffer =
+      m_command_pool->get_command_buffer(m_current_frame);
+
   // wait for previous frame to finish by blocking execution
-  vkWaitForFences(m_device->get(), 1, &in_flight_fences[current_frame], VK_TRUE,
+  vkWaitForFences(device, 1, &in_flight_fences[m_current_frame], VK_TRUE,
                   UINT64_MAX);
-  vkResetFences(m_device->get(), 1, &in_flight_fences[current_frame]);
+  vkResetFences(device, 1, &in_flight_fences[m_current_frame]);
 
   // get the image from the swap chain
   uint32_t image_index;
-  vkAcquireNextImageKHR(m_device->get(), m_swap_chain->get(), UINT64_MAX,
-                        image_available_semaphores[current_frame],
+  vkAcquireNextImageKHR(device, m_swap_chain->get_swapchain(), UINT64_MAX,
+                        image_available_semaphores[m_current_frame],
                         VK_NULL_HANDLE, &image_index);
 
   // reset then record the command buffer for this frame
-  vkResetCommandBuffer(m_command_buffers->get(current_frame), 0);
+  vkResetCommandBuffer(command_buffer, 0);
 
-  m_command_buffers->record_command_buffer(command_buff_opts, image_index,
-                                           current_frame);
+  VkCommandBufferBeginInfo begin_info{};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-  // submit the command buffer
+  if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS) {
+    throw std::runtime_error("failed to begin recording command buffer!");
+  }
+
+  VkRenderPassBeginInfo render_pass_info{};
+  render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  render_pass_info.renderPass = m_pipeline->get_render_pass();
+  render_pass_info.framebuffer = m_framebuffer->get_framebuffer(image_index);
+  render_pass_info.renderArea.offset = {0, 0};
+  render_pass_info.renderArea.extent = m_swap_chain->get_extent();
+
+  VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f}}};
+  render_pass_info.clearValueCount = 1;
+  render_pass_info.pClearValues = &clear_color;
+
+  vkCmdBeginRenderPass(command_buffer, &render_pass_info,
+                       VK_SUBPASS_CONTENTS_INLINE);
+
+  vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    m_pipeline->get_pipeline());
+
+  VkViewport viewport{};
+  viewport.x = 0.0f, viewport.y = 0.0f;
+  viewport.minDepth = 0.0f, viewport.maxDepth = 1.0f;
+  viewport.width = (float)m_swap_chain->get_extent().width;
+  viewport.height = (float)m_swap_chain->get_extent().height;
+  vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+  VkRect2D scissor{};
+  scissor.offset = {0, 0};
+  scissor.extent = m_swap_chain->get_extent();
+  vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+
+  // VkBuffer vertex_buffers[] = {opts.vertex_buffer->get_vertex_buffer()};
+  // VkDeviceSize offsets[] = {0};
+  // vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers,
+  //                        offsets);
+
+  // VkBuffer index_buffer = opts.vertex_buffer->get_index_buffer();
+  // vkCmdBindIndexBuffer(command_buffer, index_buffer, 0,
+  //                      VK_INDEX_TYPE_UINT16);
+
+  // VkPipelineLayout pipeline_layout =
+  //     m_pipeline->get_pipeline_layout();
+  // VkDescriptorSet descriptor_set =
+  //     opts.descriptor_set->get_descriptor_set(current_frame);
+  // vkCmdBindDescriptorSets(command_buffer,
+  //                         VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout,
+  //                         0, 1, &descriptor_set, 0, nullptr);
+
+  // uint32_t indices =
+  //     static_cast<uint32_t>(opts.vertex_buffer->get_index_count());
+  // vkCmdDrawIndexed(command_buffer, indices, 1, 0, 0, 0);
+
+  vkCmdEndRenderPass(command_buffer);
+
+  if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
+    throw std::runtime_error("failed to record command buffer!");
+  }
+
   VkSubmitInfo submit_info{};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-  VkSemaphore wait_semaphores[] = {image_available_semaphores[current_frame]};
+  VkSemaphore wait_semaphores[] = {image_available_semaphores[m_current_frame]};
   VkPipelineStageFlags wait_stages[] = {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   submit_info.waitSemaphoreCount = 1;
@@ -122,14 +215,15 @@ void eng::application::draw_frame(command_buffer_options &command_buff_opts) {
   submit_info.pWaitDstStageMask = wait_stages;
 
   submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &m_command_buffers->get(current_frame);
+  submit_info.pCommandBuffers = &command_buffer;
 
-  VkSemaphore signal_semaphores[] = {render_finished_semaphores[current_frame]};
+  VkSemaphore signal_semaphores[] = {
+      render_finished_semaphores[m_current_frame]};
   submit_info.signalSemaphoreCount = 1;
   submit_info.pSignalSemaphores = signal_semaphores;
 
   if (vkQueueSubmit(m_device->get_graphics_queue(), 1, &submit_info,
-                    in_flight_fences[current_frame]) != VK_SUCCESS) {
+                    in_flight_fences[m_current_frame]) != VK_SUCCESS) {
     throw std::runtime_error("failed to submit draw command buffer!");
   }
 
@@ -139,7 +233,7 @@ void eng::application::draw_frame(command_buffer_options &command_buff_opts) {
   present_info.waitSemaphoreCount = 1;
   present_info.pWaitSemaphores = signal_semaphores;
 
-  VkSwapchainKHR swap_chains[] = {m_swap_chain->get()};
+  VkSwapchainKHR swap_chains[] = {m_swap_chain->get_swapchain()};
   present_info.swapchainCount = 1;
   present_info.pSwapchains = swap_chains;
   present_info.pImageIndices = &image_index;
@@ -148,65 +242,29 @@ void eng::application::draw_frame(command_buffer_options &command_buff_opts) {
       vkQueuePresentKHR(m_device->get_present_queue(), &present_info);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-    recreate_swap_chain();
+    vkDeviceWaitIdle(device);
+
+    m_framebuffer = std::make_unique<framebuffer>();
+    m_swap_chain = std::make_unique<swap_chain>();
+
+    m_swap_chain->create_swap_chain(*m_device, *m_surface, *m_window);
+    m_swap_chain->create_image_views(*m_device);
+
+    m_framebuffer->create_framebuffers(*m_device, *m_swap_chain, *m_pipeline);
+
   } else if (result != VK_SUCCESS) {
     throw std::runtime_error("failed to present swap chain image!");
   }
 
-  current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+  m_current_frame = (m_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+  m_delta_time = std::chrono::high_resolution_clock::now() - m_last_frame_end;
+  m_last_frame_end = std::chrono::high_resolution_clock::now();
 }
 
-void eng::application::recreate_swap_chain() {
-  vkDeviceWaitIdle(m_device->get());
+double eng::vulkan_renderer::delta_time() { return m_delta_time.count(); }
 
-  reset_swap_chain();
-
-  m_swap_chain->create_swap_chain(m_device, m_surface, m_window);
-  m_swap_chain->create_image_views(m_device);
-
-  m_framebuffer->create_framebuffers(m_device, m_swap_chain,
-                                     m_graphics_pipeline);
-}
-
-void eng::application::reset_swap_chain() {
-  delete m_framebuffer;
-  delete m_swap_chain;
-
-  m_framebuffer = new framebuffer();
-  m_swap_chain = new swap_chain();
-}
-
-eng::application::~application() {
-  vkDeviceWaitIdle(m_device->get());
-
-  if (is_running()) {
-    stop();
-  }
-
-  delete m_vertex_buffer;
-  delete m_command_buffers;
-  delete m_framebuffer;
-  delete m_graphics_pipeline;
-  delete m_swap_chain;
-
-  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-    vkDestroySemaphore(m_device->get(), image_available_semaphores[i], nullptr);
-    vkDestroySemaphore(m_device->get(), render_finished_semaphores[i], nullptr);
-    vkDestroyFence(m_device->get(), in_flight_fences[i], nullptr);
-  }
-
-  delete m_device;
-  delete m_surface;
-  delete m_instance;
-  delete m_window;
-}
-
-void eng::application::set_shader(const char *file_path, shader_type type) {
-  m_graphics_pipeline->set_shader(file_path, type);
-}
-
-void eng::application::start() {
-  if (!m_graphics_pipeline->required_shaders_set()) {
+void eng::vulkan_renderer::start_rendering(window_details &window_details) {
+  if (!m_pipeline->required_shaders_set()) {
     std::cerr
         << "Vertex and Fragment Shaders Not Set! Set Shaders With "
            "application::set_shader(...) Before Calling application::start()"
@@ -214,37 +272,23 @@ void eng::application::start() {
     return;
   }
 
-  m_running = true;
-  m_main = std::thread([this] {
-    m_window = new window(m_window_details);
+  m_is_running = true;
+  m_rendering_thread = std::thread([this, &window_details] {
+    initialize(window_details);
 
-    initialize_vulkan();
-
-    command_buffer_options opts{};
-    opts.swap_chain = m_swap_chain;
-    opts.graphics_pipeline = m_graphics_pipeline;
-    opts.framebuffer = m_framebuffer;
-    opts.vertex_buffer = m_vertex_buffer;
-    opts.clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
-
-    unsigned int i = 0;
-    while (!m_window->should_close() && is_running()) {
+    while (!m_window->should_close() && !m_should_close) {
       m_window->poll_events();
 
-      draw_frame(opts);
-
-      // main loop logic
+      render_frame();
     }
-
-    m_running = false;
   });
+
+  m_is_running = false;
 }
 
-void eng::application::stop() {
-  std::cout << "Application Stopped" << std::endl;
-
-  m_running = false;
-  if (m_main.joinable()) {
-    m_main.join();
+void eng::vulkan_renderer::stop_rendering() {
+  m_should_close = true;
+  if (m_rendering_thread.joinable()) {
+    m_rendering_thread.join();
   }
 }

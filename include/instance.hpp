@@ -42,7 +42,7 @@ public:
   /// window</param>
   void create_instance(const char *application_name);
 
-  VkInstance &get();
+  VkInstance &get_instance();
   VkDebugUtilsMessengerEXT &get_debug_messenger();
 
 private:

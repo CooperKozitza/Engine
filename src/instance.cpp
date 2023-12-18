@@ -70,7 +70,7 @@ void eng::instance::create_instance(const char *application_name) {
   std::cout << "Created Vulkan Instance" << std::endl;
 }
 
-VkInstance &eng::instance::get() { return m_instance; }
+VkInstance &eng::instance::get_instance() { return m_instance; }
 
 VkDebugUtilsMessengerEXT &eng::instance::get_debug_messenger() {
   return m_debug_messenger;

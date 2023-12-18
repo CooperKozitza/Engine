@@ -15,14 +15,14 @@ eng::swap_chain::~swap_chain() {
   }
 }
 
-void eng::swap_chain::create_swap_chain(device *dev, surface *surf,
-                                        window *win) {
-  m_device = dev->get();
-  m_surface = surf->get();
-  m_window = win->get();
+void eng::swap_chain::create_swap_chain(device &dev, surface &surf,
+                                        window &win) {
+  m_device = dev.get_device();
+  m_surface = surf.get_surface();
+  m_window = win.get_window();
 
-  device::swap_chain_support_details swap_chain_support =
-      dev->get_swap_chain_support_details();
+  swap_chain_support_details swap_chain_support =
+      dev.get_swap_chain_support_details();
 
   VkSurfaceFormatKHR surface_format =
       choose_swap_surface_format(swap_chain_support.formats);
@@ -48,7 +48,7 @@ void eng::swap_chain::create_swap_chain(device *dev, surface *surf,
   create_info.imageArrayLayers = 1;
   create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-  device::queue_family_indices indices = dev->get_queue_family_indices();
+  queue_family_indices indices = dev.get_queue_family_indices();
   uint32_t queueFamilyIndices[] = {indices.graphics_family.value(),
                                    indices.present_family.value()};
 
@@ -81,8 +81,8 @@ void eng::swap_chain::create_swap_chain(device *dev, surface *surf,
   m_extent = m_extent;
 }
 
-void eng::swap_chain::create_image_views(device *dev) {
-  m_device = dev->get();
+void eng::swap_chain::create_image_views(device &dev) {
+  m_device = dev.get_device();
 
   m_image_views.resize(m_images.size());
 
