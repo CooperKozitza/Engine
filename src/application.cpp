@@ -29,10 +29,30 @@ void eng::application::add_shader(const char *file_path, shader_type type) {
 }
 
 void eng::application::start() {
+  for (object *obj : m_objects) {
+    obj->start();
+  }
+
+  m_is_running = true;
   m_renderer->start_rendering(m_window_details);
+
+  m_update_thread = std::thread([this] {
+    while (m_is_running) {
+      for (object *obj : m_objects) {
+        obj->update(m_renderer->delta_time());
+      }
+    }
+  });
 }
 
-void eng::application::stop() { m_renderer->stop_rendering(); }
+void eng::application::stop() {
+  m_renderer->stop_rendering();
+
+  m_is_running = false;
+  if (m_update_thread.joinable()) {
+    m_update_thread.join();
+  }
+}
 
 bool eng::application::is_running() { return m_renderer->is_rendering(); }
 
@@ -96,10 +116,6 @@ void eng::vulkan_renderer::initialize(window_details &window_details) {
       static_cast<uint32_t>(m_application->get_object_count());
   m_descriptor_pool->create_descriptor_pool(*m_device, object_count);
 
-  for (size_t i = 0; i < object_count; ++i) {
-    // m_descriptor_pool->create_descriptor_set(*m_device, *m_pipeline, )
-  }
-
   // synchronization object creation
 
   VkSemaphoreCreateInfo semaphore_info{};
@@ -119,6 +135,19 @@ void eng::vulkan_renderer::initialize(window_details &window_details) {
       throw std::runtime_error(
           "failed to create synchronization objects for a frame!");
     }
+  }
+
+  for (size_t i = 0; i < m_application->get_object_count(); ++i) {
+    object *obj = m_application->get_object(i);
+
+    vertex_buffer *vb = obj->get_vertex_buffer();
+    vb->create_vertex_buffer(*m_device, *m_command_pool);
+    vb->create_index_buffer(*m_device, *m_command_pool);
+
+    uniform_buffer *ub = obj->get_uniform_buffer();
+    ub->create_uniform_buffer(*m_device);
+
+    m_descriptor_pool->create_descriptor_set(*m_device, *m_pipeline, *ub);
   }
 }
 
@@ -177,26 +206,47 @@ void eng::vulkan_renderer::render_frame() {
   scissor.extent = m_swap_chain->get_extent();
   vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-  // VkBuffer vertex_buffers[] = {opts.vertex_buffer->get_vertex_buffer()};
-  // VkDeviceSize offsets[] = {0};
-  // vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers,
-  //                        offsets);
+  float fov = glm::radians(45.0f);
+  float aspect_ratio = static_cast<float>(scissor.extent.width) /
+                       static_cast<float>(scissor.extent.height);
 
-  // VkBuffer index_buffer = opts.vertex_buffer->get_index_buffer();
-  // vkCmdBindIndexBuffer(command_buffer, index_buffer, 0,
-  //                      VK_INDEX_TYPE_UINT16);
+  glm::vec3 camera_pos = glm::vec3(0.0f, 0.0f, 3.0f);
+  glm::vec3 camera_target = glm::vec3(0.0f, 0.0f, 0.0f);
+  glm::vec3 up_vector = glm::vec3(0.0f, 1.0f, 0.0f);
 
-  // VkPipelineLayout pipeline_layout =
-  //     m_pipeline->get_pipeline_layout();
-  // VkDescriptorSet descriptor_set =
-  //     opts.descriptor_set->get_descriptor_set(current_frame);
-  // vkCmdBindDescriptorSets(command_buffer,
-  //                         VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout,
-  //                         0, 1, &descriptor_set, 0, nullptr);
+  uniform_buffer_object ubo{};
+  ubo.proj = glm::perspective(fov, aspect_ratio, 0.1f, 100.0f);
+  ubo.view = glm::lookAt(camera_pos, camera_target, up_vector);
 
-  // uint32_t indices =
-  //     static_cast<uint32_t>(opts.vertex_buffer->get_index_count());
-  // vkCmdDrawIndexed(command_buffer, indices, 1, 0, 0, 0);
+  for (size_t i = 0; i < m_application->get_object_count(); ++i) {
+    object *obj = m_application->get_object(i);
+
+    vertex_buffer *vb = obj->get_vertex_buffer();
+    uniform_buffer *ub = obj->get_uniform_buffer();
+
+    glm::vec3 rot = obj->get_rotation();
+    ubo.model = glm::translate(glm::mat4(1.0f), obj->get_position()) *
+                glm::rotate(glm::mat4(1.0f), rot.x, glm::vec3(1, 0, 0)) *
+                glm::rotate(glm::mat4(1.0f), rot.y, glm::vec3(0, 1, 0)) *
+                glm::rotate(glm::mat4(1.0f), rot.z, glm::vec3(0, 0, 1));
+
+    ub->update_uniform_buffer(m_current_frame, ubo);
+
+    VkBuffer vertex_buffers[] = {vb->get_vertex_buffer()};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+
+    VkBuffer index_buffer = vb->get_index_buffer();
+    vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, VK_INDEX_TYPE_UINT16);
+
+    VkPipelineLayout pipeline_layout = m_pipeline->get_pipeline_layout();
+    VkDescriptorSet descriptor_set = m_descriptor_pool->get_descriptor_set(i);
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+
+    uint32_t indices = static_cast<uint32_t>(vb->get_index_count());
+    vkCmdDrawIndexed(command_buffer, indices, 1, 0, 0, 0);
+  }
 
   vkCmdEndRenderPass(command_buffer);
 
@@ -281,9 +331,9 @@ void eng::vulkan_renderer::start_rendering(window_details &window_details) {
 
       render_frame();
     }
-  });
 
-  m_is_running = false;
+    m_is_running = false;
+  });
 }
 
 void eng::vulkan_renderer::stop_rendering() {

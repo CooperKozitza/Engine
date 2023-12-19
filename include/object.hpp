@@ -8,16 +8,18 @@ namespace eng {
 class object {
 public:
   object();
-  ~object();
 
   virtual void start() = 0;
-  virtual void update() = 0;
+  virtual void update(double dt) = 0;
 
   void set_position(glm::vec3 position);
   glm::vec3 get_position() { return m_position; }
   
-  void set_rotation(glm::vec3 rotation)
+  void set_rotation(glm::vec3 rotation);
   glm::vec3 get_rotation() { return m_rotation; }
+
+  vertex_buffer *get_vertex_buffer() { return m_vertex_buffer.get(); }
+  uniform_buffer *get_uniform_buffer() { return m_uniform_buffer.get(); }
 
 private:
   std::mutex m_transformation_mutex;

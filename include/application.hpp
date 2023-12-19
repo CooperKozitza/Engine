@@ -41,6 +41,7 @@ public:
   void add_shader(const char *file_path, shader_type type);
   void add_object(object &obj) { m_objects.push_back(&obj); }
 
+  object *get_object(size_t index) { return m_objects[index]; }
   size_t get_object_count() { return m_objects.size(); }
 
   void start();
@@ -59,7 +60,9 @@ private:
   static std::mutex creation_mutex;
 
   // flag for whether or not the application is running (used to stop thread)
-  std::atomic<bool> m_running;
+  std::atomic<bool> m_is_running;
+
+  std::thread m_update_thread;
 
   const char *m_name;
   window_details m_window_details;

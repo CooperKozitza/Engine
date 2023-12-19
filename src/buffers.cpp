@@ -60,11 +60,11 @@ eng::vertex_buffer::~vertex_buffer() {
   }
 }
 
-void eng::vertex_buffer::create_vertex_buffer(device *dev,
-                                              command_pool *cmd_buffs) {
+void eng::vertex_buffer::create_vertex_buffer(device &dev,
+                                              command_pool &cmd_pool) {
   std::lock_guard<std::mutex> guard(m_mutex);
 
-  m_device = dev->get_device();
+  m_device = dev.get_device();
 
   VkDeviceSize buffer_size = sizeof(m_vertices[0]) * m_vertices.size();
 
@@ -79,7 +79,7 @@ void eng::vertex_buffer::create_vertex_buffer(device *dev,
   staging_buffer_opts.buffer = &staging_buffer;
   staging_buffer_opts.buffer_memory = &staging_buffer_memory;
 
-  dev->create_buffer(staging_buffer_opts);
+  dev.create_buffer(staging_buffer_opts);
 
   void *data;
   vkMapMemory(m_device, staging_buffer_memory, 0, buffer_size, 0, &data);
@@ -94,18 +94,18 @@ void eng::vertex_buffer::create_vertex_buffer(device *dev,
   vertex_buffer_opts.buffer = &m_vertex_buffer;
   vertex_buffer_opts.buffer_memory = &m_vertex_buffer_memory;
 
-  dev->create_buffer(vertex_buffer_opts);
+  dev.create_buffer(vertex_buffer_opts);
 
-  VkCommandPool cmd_pool = cmd_buffs->get_pool();
-  dev->copy_buffer(cmd_pool, staging_buffer, m_vertex_buffer, buffer_size);
+  VkCommandPool command_pool = cmd_pool.get_pool();
+  dev.copy_buffer(command_pool, staging_buffer, m_vertex_buffer, buffer_size);
 
   vkDestroyBuffer(m_device, staging_buffer, nullptr);
   vkFreeMemory(m_device, staging_buffer_memory, nullptr);
 }
 
-void eng::vertex_buffer::create_index_buffer(device *dev,
-                                             command_pool *cmd_buffs) {
-  m_device = dev->get_device();
+void eng::vertex_buffer::create_index_buffer(device &dev,
+                                             command_pool &cmd_pool) {
+  m_device = dev.get_device();
 
   VkDeviceSize buffer_size = sizeof(m_indices[0]) * m_indices.size();
 
@@ -120,7 +120,7 @@ void eng::vertex_buffer::create_index_buffer(device *dev,
   opts.buffer = &staging_buffer;
   opts.buffer_memory = &staging_buffer_memory;
 
-  dev->create_buffer(opts);
+  dev.create_buffer(opts);
 
   void *data;
   vkMapMemory(m_device, staging_buffer_memory, 0, buffer_size, 0, &data);
@@ -135,10 +135,10 @@ void eng::vertex_buffer::create_index_buffer(device *dev,
   opts.buffer = &m_index_buffer;
   opts.buffer_memory = &m_index_buffer_memory;
 
-  dev->create_buffer(opts);
+  dev.create_buffer(opts);
 
-  VkCommandPool cmd_pool = cmd_buffs->get_pool();
-  dev->copy_buffer(cmd_pool, staging_buffer, m_index_buffer, buffer_size);
+  VkCommandPool command_pool = cmd_pool.get_pool();
+  dev.copy_buffer(command_pool, staging_buffer, m_index_buffer, buffer_size);
 
   vkDestroyBuffer(m_device, staging_buffer, nullptr);
   vkFreeMemory(m_device, staging_buffer_memory, nullptr);
@@ -211,6 +211,8 @@ void eng::descriptor_pool::create_descriptor_pool(device &dev,
                                                   uint32_t set_count) {
   m_device = dev.get_device();
 
+  m_descriptor_sets.resize(set_count);
+
   VkDescriptorPoolSize pool_size{};
   pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   pool_size.descriptorCount = set_count;
@@ -232,15 +234,14 @@ void eng::descriptor_pool::create_descriptor_set(device &dev, pipeline &gp,
                                                  uniform_buffer &ub) {
   m_device = dev.get_device();
 
-  VkDescriptorSetLayout desriptor_set_layout = gp.get_descriptor_set_layout();
-
+  VkDescriptorSetLayout layouts[] = {gp.get_descriptor_set_layout()};
   VkDescriptorSetAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   alloc_info.descriptorPool = m_descriptor_pool;
   alloc_info.descriptorSetCount = 1;
-  alloc_info.pSetLayouts = &desriptor_set_layout;
+  alloc_info.pSetLayouts = layouts;
 
-  if (vkAllocateDescriptorSets(m_device, &alloc_info,
+  if (vkAllocateDescriptorSets(dev.get_device(), &alloc_info,
                                m_descriptor_sets.data()) != VK_SUCCESS) {
     throw std::runtime_error("failed to allocate descriptor sets!");
   }
@@ -248,20 +249,18 @@ void eng::descriptor_pool::create_descriptor_set(device &dev, pipeline &gp,
   VkDescriptorBufferInfo buffer_info{};
   buffer_info.buffer = ub.get_uniform_buffer();
   buffer_info.offset = 0;
-  buffer_info.range = sizeof(uniform_buffer_object);
+  buffer_info.range = VK_WHOLE_SIZE;
 
   VkWriteDescriptorSet descriptor_write{};
   descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptor_write.dstSet = m_descriptor_sets[m_descriptor_sets.size()];
+  descriptor_write.dstSet =
+      m_descriptor_sets
+          .back(); // Assuming m_descriptor_sets is being properly managed
   descriptor_write.dstBinding = 0;
   descriptor_write.dstArrayElement = 0;
-
   descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   descriptor_write.descriptorCount = 1;
-
   descriptor_write.pBufferInfo = &buffer_info;
-  descriptor_write.pImageInfo = nullptr;       // Optional
-  descriptor_write.pTexelBufferView = nullptr; // Optional
 
-  vkUpdateDescriptorSets(m_device, 1, &descriptor_write, 0, nullptr);
+  vkUpdateDescriptorSets(dev.get_device(), 1, &descriptor_write, 0, nullptr);
 }

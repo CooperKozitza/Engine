@@ -64,8 +64,8 @@ public:
   vertex_buffer();
   ~vertex_buffer();
 
-  void create_vertex_buffer(device *dev, command_pool *cmd_buffs);
-  void create_index_buffer(device *dev, command_pool *cmd_buffs);
+  void create_vertex_buffer(device &dev, command_pool &cmd_buffs);
+  void create_index_buffer(device &dev, command_pool &cmd_buffs);
 
   void set_vertices(std::vector<vertex> &vertices);
   void set_indices(std::vector<uint16_t> &indices);
