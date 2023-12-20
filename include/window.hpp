@@ -7,11 +7,12 @@
 
 namespace eng {
 struct window_details {
+  window_details() : resolution(), title("") {}
   window_details(const glm::uvec2 &res, const char *title)
-      : resolution(res), title(title){};
+      : resolution(res), title(title) {}
 
   const char *title;
-  const glm::uvec2 resolution;
+  glm::uvec2 resolution;
 };
 
 class window {
@@ -30,7 +31,7 @@ public:
   window(const window &) = delete;
   const window &operator=(const window &) = delete;
 
-  void initialize(const glm::uvec2 &res, const char *title);
+  void initialize_rendering(const glm::uvec2 &res, const char *title);
 
   /// <summary>
   /// Checks for events like key-strokes or pressing the close button

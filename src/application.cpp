@@ -1,35 +1,44 @@
 #include "../include/application.hpp"
 
-eng::application *eng::application::app;
+eng::application eng::application::app;
 
 std::mutex eng::application::creation_mutex;
 
-eng::application *eng::application::create(const glm::uvec2 &res,
+eng::application &eng::application::create(const glm::uvec2 &res,
                                            const char *title) {
   std::lock_guard<std::mutex> guard(creation_mutex);
-  if (!app) {
-    app = new application(res, title);
-    app->initialize();
-  }
+  app.m_name = title;
+  app.m_window_details.title = title;
+  app.m_window_details.resolution = res;
+
+  app.initialize_rendering();
 
   return app;
 }
 
-eng::application::application(const glm::uvec2 res, const char *name)
-    : m_window_details(res, name), m_name(name), m_objects() {}
+eng::application::application() : m_window_details(), m_name(), m_objects() {}
 
-void eng::application::initialize() {
+void eng::application::initialize_rendering() {
   m_renderer = std::make_unique<vulkan_renderer>();
 }
 
-eng::application::~application() {}
+eng::application::~application() {
+  if (m_is_running || m_renderer->is_rendering()) {
+    stop();
+    m_renderer->stop_rendering();
+  }
+
+  m_renderer.reset();
+
+  m_objects.clear();
+}
 
 void eng::application::add_shader(const char *file_path, shader_type type) {
   m_renderer->add_shader(file_path, type);
 }
 
 void eng::application::start() {
-  for (object *obj : m_objects) {
+  for (std::unique_ptr<object> &obj : m_objects) {
     obj->start();
   }
 
@@ -37,8 +46,8 @@ void eng::application::start() {
   m_renderer->start_rendering(m_window_details);
 
   m_update_thread = std::thread([this] {
-    while (m_is_running) {
-      for (object *obj : m_objects) {
+    while (is_running()) {
+      for (std::unique_ptr<object> &obj : m_objects) {
         obj->update(m_renderer->delta_time());
       }
     }
@@ -54,12 +63,13 @@ void eng::application::stop() {
   }
 }
 
-bool eng::application::is_running() { return m_renderer->is_rendering(); }
+bool eng::application::is_running() {
+  return m_renderer->is_rendering() && m_is_running;
+}
 
 eng::renderer::renderer()
-    : m_current_frame(), m_should_close(false), m_is_running(false) {
-  m_application = application::get();
-}
+    : m_current_frame(), m_should_close(false), m_is_running(false),
+      m_application(application::get()) {}
 
 eng::vulkan_renderer::vulkan_renderer() : renderer(), m_delta_time() {
   m_instance = std::make_unique<instance>();
@@ -67,7 +77,7 @@ eng::vulkan_renderer::vulkan_renderer() : renderer(), m_delta_time() {
   m_device = std::make_unique<device>();
 
   m_swap_chain = std::make_unique<swap_chain>();
-  m_pipeline = std::make_unique<pipeline>();
+  m_graphics_pipeline = std::make_unique<pipeline>();
   m_framebuffer = std::make_unique<framebuffer>();
 
   m_command_pool = std::make_unique<command_pool>();
@@ -82,6 +92,10 @@ eng::vulkan_renderer::vulkan_renderer() : renderer(), m_delta_time() {
 }
 
 eng::vulkan_renderer::~vulkan_renderer() {
+  if (m_is_running) {
+    stop_rendering();
+  }
+
   vkDeviceWaitIdle(m_device->get_device());
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
@@ -91,9 +105,26 @@ eng::vulkan_renderer::~vulkan_renderer() {
                        nullptr);
     vkDestroyFence(m_device->get_device(), in_flight_fences[i], nullptr);
   }
+
+  m_descriptor_pool.reset();
+  m_command_pool.reset();
+
+  m_framebuffer.reset();
+  m_graphics_pipeline.reset();
+  m_swap_chain.reset();
+
+  for (std::unique_ptr<object> &obj : m_application.get_objects()) {
+    obj->uninitialize_rendering();
+    obj.reset();
+  }
+
+  m_device.reset();
+  m_surface.reset();
+  m_instance.reset();
 }
 
-void eng::vulkan_renderer::initialize(window_details &window_details) {
+void eng::vulkan_renderer::initialize_rendering(
+    window_details &window_details) {
   m_window = std::make_unique<window>(window_details);
 
   m_instance->create_instance(window_details.title);
@@ -103,17 +134,17 @@ void eng::vulkan_renderer::initialize(window_details &window_details) {
   m_swap_chain->create_swap_chain(*m_device, *m_surface, *m_window);
   m_swap_chain->create_image_views(*m_device);
 
-  m_pipeline->create_render_pass(*m_device, *m_swap_chain);
-  m_pipeline->create_descriptor_set_layout(*m_device);
-  m_pipeline->create_graphics_pipeline(*m_device, *m_swap_chain);
+  m_graphics_pipeline->create_render_pass(*m_device, *m_swap_chain);
+  m_graphics_pipeline->create_descriptor_set_layout(*m_device);
+  m_graphics_pipeline->create_graphics_pipeline(*m_device, *m_swap_chain);
 
-  m_framebuffer->create_framebuffers(*m_device, *m_swap_chain, *m_pipeline);
+  m_framebuffer->create_framebuffers(*m_device, *m_swap_chain, *m_graphics_pipeline);
 
   m_command_pool->create_command_pool(*m_device);
   m_command_pool->create_command_buffers(*m_device, MAX_FRAMES_IN_FLIGHT);
 
   uint32_t object_count =
-      static_cast<uint32_t>(m_application->get_object_count());
+      static_cast<uint32_t>(m_application.get_object_count());
   m_descriptor_pool->create_descriptor_pool(*m_device, object_count);
 
   // synchronization object creation
@@ -137,17 +168,12 @@ void eng::vulkan_renderer::initialize(window_details &window_details) {
     }
   }
 
-  for (size_t i = 0; i < m_application->get_object_count(); ++i) {
-    object *obj = m_application->get_object(i);
-
-    vertex_buffer *vb = obj->get_vertex_buffer();
-    vb->create_vertex_buffer(*m_device, *m_command_pool);
-    vb->create_index_buffer(*m_device, *m_command_pool);
-
+  for (std::unique_ptr<object> &obj : m_application.get_objects()) {
     uniform_buffer *ub = obj->get_uniform_buffer();
-    ub->create_uniform_buffer(*m_device);
 
-    m_descriptor_pool->create_descriptor_set(*m_device, *m_pipeline, *ub);
+    obj->initialize_rendering(*m_device, *m_command_pool);
+
+    m_descriptor_pool->create_descriptor_set(*m_device, *m_graphics_pipeline, *ub);
   }
 }
 
@@ -179,7 +205,7 @@ void eng::vulkan_renderer::render_frame() {
 
   VkRenderPassBeginInfo render_pass_info{};
   render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  render_pass_info.renderPass = m_pipeline->get_render_pass();
+  render_pass_info.renderPass = m_graphics_pipeline->get_render_pass();
   render_pass_info.framebuffer = m_framebuffer->get_framebuffer(image_index);
   render_pass_info.renderArea.offset = {0, 0};
   render_pass_info.renderArea.extent = m_swap_chain->get_extent();
@@ -192,7 +218,7 @@ void eng::vulkan_renderer::render_frame() {
                        VK_SUBPASS_CONTENTS_INLINE);
 
   vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    m_pipeline->get_pipeline());
+                    m_graphics_pipeline->get_pipeline());
 
   VkViewport viewport{};
   viewport.x = 0.0f, viewport.y = 0.0f;
@@ -206,21 +232,18 @@ void eng::vulkan_renderer::render_frame() {
   scissor.extent = m_swap_chain->get_extent();
   vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-  float fov = glm::radians(45.0f);
-  float aspect_ratio = static_cast<float>(scissor.extent.width) /
-                       static_cast<float>(scissor.extent.height);
-
-  glm::vec3 camera_pos = glm::vec3(0.0f, 0.0f, 3.0f);
-  glm::vec3 camera_target = glm::vec3(0.0f, 0.0f, 0.0f);
-  glm::vec3 up_vector = glm::vec3(0.0f, 1.0f, 0.0f);
+  const glm::vec3 camera_pos = glm::vec3(0.0f, 0.0f, 3.0f);
+  const glm::vec3 camera_target = glm::vec3(0.0f, 0.0f, 0.0f);
+  const glm::vec3 up_vector = glm::vec3(0.0f, 1.0f, 0.0f);
 
   uniform_buffer_object ubo{};
-  ubo.proj = glm::perspective(fov, aspect_ratio, 0.1f, 100.0f);
+  ubo.proj =
+      glm::ortho(0.0f, static_cast<float>(scissor.extent.width), 0.0f,
+                 static_cast<float>(scissor.extent.height), 0.0f, 100.0f);
   ubo.view = glm::lookAt(camera_pos, camera_target, up_vector);
 
-  for (size_t i = 0; i < m_application->get_object_count(); ++i) {
-    object *obj = m_application->get_object(i);
-
+  size_t descriptor_set_index = 0;
+  for (std::unique_ptr<object> &obj : m_application.get_objects()) {
     vertex_buffer *vb = obj->get_vertex_buffer();
     uniform_buffer *ub = obj->get_uniform_buffer();
 
@@ -239,13 +262,16 @@ void eng::vulkan_renderer::render_frame() {
     VkBuffer index_buffer = vb->get_index_buffer();
     vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
-    VkPipelineLayout pipeline_layout = m_pipeline->get_pipeline_layout();
-    VkDescriptorSet descriptor_set = m_descriptor_pool->get_descriptor_set(i);
+    VkPipelineLayout pipeline_layout = m_graphics_pipeline->get_pipeline_layout();
+    VkDescriptorSet descriptor_set =
+        m_descriptor_pool->get_descriptor_set(descriptor_set_index);
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
 
     uint32_t indices = static_cast<uint32_t>(vb->get_index_count());
     vkCmdDrawIndexed(command_buffer, indices, 1, 0, 0, 0);
+
+    ++descriptor_set_index;
   }
 
   vkCmdEndRenderPass(command_buffer);
@@ -291,6 +317,7 @@ void eng::vulkan_renderer::render_frame() {
   VkResult result =
       vkQueuePresentKHR(m_device->get_present_queue(), &present_info);
 
+  // reset framebuffer and swap chain if the window is resized
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
     vkDeviceWaitIdle(device);
 
@@ -300,7 +327,7 @@ void eng::vulkan_renderer::render_frame() {
     m_swap_chain->create_swap_chain(*m_device, *m_surface, *m_window);
     m_swap_chain->create_image_views(*m_device);
 
-    m_framebuffer->create_framebuffers(*m_device, *m_swap_chain, *m_pipeline);
+    m_framebuffer->create_framebuffers(*m_device, *m_swap_chain, *m_graphics_pipeline);
 
   } else if (result != VK_SUCCESS) {
     throw std::runtime_error("failed to present swap chain image!");
@@ -314,7 +341,7 @@ void eng::vulkan_renderer::render_frame() {
 double eng::vulkan_renderer::delta_time() { return m_delta_time.count(); }
 
 void eng::vulkan_renderer::start_rendering(window_details &window_details) {
-  if (!m_pipeline->required_shaders_set()) {
+  if (!m_graphics_pipeline->required_shaders_set()) {
     std::cerr
         << "Vertex and Fragment Shaders Not Set! Set Shaders With "
            "application::set_shader(...) Before Calling application::start()"
@@ -324,7 +351,7 @@ void eng::vulkan_renderer::start_rendering(window_details &window_details) {
 
   m_is_running = true;
   m_rendering_thread = std::thread([this, &window_details] {
-    initialize(window_details);
+    initialize_rendering(window_details);
 
     while (!m_window->should_close() && !m_should_close) {
       m_window->poll_events();

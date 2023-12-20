@@ -19,19 +19,19 @@
 #include "framebuffer.hpp"
 #include "graphics_pipeline.hpp"
 #include "instance.hpp"
+#include "object.hpp"
 #include "shader.hpp"
 #include "surface.hpp"
 #include "swap_chain.hpp"
 #include "window.hpp"
-#include "object.hpp"
 
 namespace eng {
 class renderer;
 
 class application {
 public:
-  static application *create(const glm::uvec2 &res, const char *title);
-  static application *get() { return app; }
+  static application &create(const glm::uvec2 &res, const char *title);
+  static application &get() { return app; }
 
   application(const application &) = delete;
   const application &operator=(const application &) = delete;
@@ -39,10 +39,11 @@ public:
   ~application();
 
   void add_shader(const char *file_path, shader_type type);
-  void add_object(object &obj) { m_objects.push_back(&obj); }
 
-  object *get_object(size_t index) { return m_objects[index]; }
+  template <typename T, typename... Args> object &instantiate(Args &&...args);
+
   size_t get_object_count() { return m_objects.size(); }
+  std::vector<std::unique_ptr<object>> &get_objects() { return m_objects; }
 
   void start();
   void stop();
@@ -50,14 +51,16 @@ public:
   bool is_running();
 
 private:
-  application(const glm::uvec2 res, const char *name);
-  static application *app;
+  application();
+  static application app;
 
-  void initialize();
+  void initialize_rendering();
 
   // prevents two threads from simultaneously creating an application
   // instance
   static std::mutex creation_mutex;
+
+  std::mutex m_instantiation_mutex;
 
   // flag for whether or not the application is running (used to stop thread)
   std::atomic<bool> m_is_running;
@@ -69,12 +72,13 @@ private:
 
   std::unique_ptr<renderer> m_renderer;
 
-  std::vector<object*> m_objects;
+  std::vector<std::unique_ptr<object>> m_objects;
 };
 
 class renderer {
 public:
   renderer();
+  virtual ~renderer() = default;
 
   renderer(const renderer &) = delete;
   void operator=(const renderer &) = delete;
@@ -90,7 +94,7 @@ public:
   bool is_rendering() { return m_is_running; }
 
 protected:
-  application *m_application;
+  application &m_application;
   uint32_t m_current_frame;
 
   std::thread m_rendering_thread;
@@ -113,11 +117,11 @@ public:
   virtual void stop_rendering();
 
   void add_shader(const char *file_path, shader_type type) {
-    m_pipeline->add_shader(file_path, type);
+    m_graphics_pipeline->add_shader(file_path, type);
   }
 
 private:
-  void initialize(window_details &window_details);
+  void initialize_rendering(window_details &window_details);
 
   std::unique_ptr<window> m_window;
 
@@ -126,7 +130,7 @@ private:
   std::unique_ptr<device> m_device;
 
   std::unique_ptr<swap_chain> m_swap_chain;
-  std::unique_ptr<pipeline> m_pipeline;
+  std::unique_ptr<pipeline> m_graphics_pipeline;
   std::unique_ptr<framebuffer> m_framebuffer;
 
   std::unique_ptr<command_pool> m_command_pool;
@@ -142,4 +146,16 @@ private:
   std::chrono::time_point<std::chrono::high_resolution_clock> m_last_frame_end;
   std::chrono::duration<double> m_delta_time;
 };
+
+template <typename T, typename... Args>
+inline object &application::instantiate(Args &&...args) {
+  static_assert(std::is_base_of<object, T>::value,
+                "The object passed was not derived from eng::object");
+  std::lock_guard<std::mutex> guard(m_instantiation_mutex);
+
+  object &instantiated_object =
+      *m_objects.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
+
+  return instantiated_object;
+}
 } // namespace eng

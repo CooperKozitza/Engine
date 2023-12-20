@@ -17,15 +17,15 @@ eng::window::~window() {
 
 eng::window::window(const glm::uvec2 &res, const char *title)
     : window() {
-  initialize(res, title);
+  initialize_rendering(res, title);
 }
 
 eng::window::window(const eng::window_details &details)
     : window() {
-  initialize(details.resolution, details.title);
+  initialize_rendering(details.resolution, details.title);
 }
 
-void eng::window::initialize(const glm::uvec2 &res, const char *title) {
+void eng::window::initialize_rendering(const glm::uvec2 &res, const char *title) {
   if (m_window) {
     glfwDestroyWindow(m_window);
   }

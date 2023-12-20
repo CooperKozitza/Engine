@@ -1,17 +1,12 @@
 #include "../include/graphics_pipeline.hpp"
 
 eng::pipeline::pipeline()
-    : m_render_pass(VK_NULL_HANDLE), m_descriptor_set_layout(VK_NULL_HANDLE),
+    : m_device(VK_NULL_HANDLE), m_render_pass(VK_NULL_HANDLE),
+      m_descriptor_set_layout(VK_NULL_HANDLE),
       m_pipeline_layout(VK_NULL_HANDLE), m_graphics_pipeline(VK_NULL_HANDLE),
       m_shaders() {}
 
 eng::pipeline::~pipeline() {
-  for (auto s : m_shaders) {
-    if (s) {
-      delete s;
-    }
-  }
-
   if (m_descriptor_set_layout != VK_NULL_HANDLE) {
     vkDestroyDescriptorSetLayout(m_device, m_descriptor_set_layout, nullptr);
   }
@@ -24,27 +19,29 @@ eng::pipeline::~pipeline() {
   if (m_render_pass != VK_NULL_HANDLE) {
     vkDestroyRenderPass(m_device, m_render_pass, nullptr);
   }
+
+  for (std::unique_ptr<shader> &shader : m_shaders) {
+    shader.reset();
+  }
 }
 
-void eng::pipeline::add_shader(const char *file_path,
-                                        shader_type type) {
+void eng::pipeline::add_shader(const char *file_path, shader_type type) {
   if (!m_shaders.empty()) {
-    std::vector<shader *>::iterator duplacate =
-        std::find_if(m_shaders.begin(), m_shaders.end(),
-                     [&type](shader *x) { return x->get_type() == type; });
+    std::vector<std::unique_ptr<shader>>::iterator duplacate = std::find_if(
+        m_shaders.begin(), m_shaders.end(),
+        [&type](std::unique_ptr<shader> &x) { return x->get_type() == type; });
 
     if (duplacate != m_shaders.end()) {
       std::cout << "Replacing " << typeid(type).name()
                 << " Shader With Shader At: " << file_path << std::endl;
 
-      delete *duplacate;
-      *duplacate = new shader(file_path, type);
+      (*duplacate) = std::make_unique<shader>(file_path, type);
 
       return;
     }
   }
 
-  m_shaders.push_back(new shader(file_path, type));
+  m_shaders.push_back(std::make_unique<shader>(file_path, type));
 }
 
 void eng::pipeline::create_descriptor_set_layout(device &dev) {
@@ -64,15 +61,14 @@ void eng::pipeline::create_descriptor_set_layout(device &dev) {
   }
 }
 
-void eng::pipeline::create_graphics_pipeline(device &dev,
-                                                      swap_chain &sc) {
-  std::vector<shader *>::iterator vert_shader_pos =
-      std::find_if(m_shaders.begin(), m_shaders.end(),
-                   [](shader *x) { return x->get_type() == VERTEX; });
+void eng::pipeline::create_graphics_pipeline(device &dev, swap_chain &sc) {
+  std::vector<std::unique_ptr<shader>>::iterator vert_shader_pos = std::find_if(
+      m_shaders.begin(), m_shaders.end(),
+      [](std::unique_ptr<shader> &x) { return x->get_type() == VERTEX; });
 
-  std::vector<shader *>::iterator frag_shader_pos =
-      std::find_if(m_shaders.begin(), m_shaders.end(),
-                   [](shader *x) { return x->get_type() == FRAGMENT; });
+  std::vector<std::unique_ptr<shader>>::iterator frag_shader_pos = std::find_if(
+      m_shaders.begin(), m_shaders.end(),
+      [](std::unique_ptr<shader> &x) { return x->get_type() == FRAGMENT; });
 
   if (vert_shader_pos == m_shaders.end() ||
       frag_shader_pos == m_shaders.end()) {
@@ -289,10 +285,10 @@ void eng::pipeline::create_render_pass(device &dev, swap_chain &sc) {
 bool eng::pipeline::required_shaders_set() {
   bool has_vert_shaders =
       std::any_of(m_shaders.begin(), m_shaders.end(),
-                  [](shader *x) { return x->get_type() == VERTEX; });
+      [](std::unique_ptr<shader> &x) { return x->get_type() == VERTEX; });
   bool has_frag_shaders =
       std::any_of(m_shaders.begin(), m_shaders.end(),
-                  [](shader *x) { return x->get_type() == FRAGMENT; });
+      [](std::unique_ptr<shader>  &x) { return x->get_type() == FRAGMENT; });
 
   return has_vert_shaders && has_frag_shaders;
 }

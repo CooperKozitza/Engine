@@ -39,6 +39,6 @@ private:
 
   VkDevice m_device;
 
-  std::vector<shader *> m_shaders;
+  std::vector<std::unique_ptr<shader>> m_shaders;
 };
 } // namespace eng
