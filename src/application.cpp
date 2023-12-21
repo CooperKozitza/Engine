@@ -77,7 +77,7 @@ eng::vulkan_renderer::vulkan_renderer() : renderer(), m_delta_time() {
   m_device = std::make_unique<device>();
 
   m_swap_chain = std::make_unique<swap_chain>();
-  m_graphics_pipeline = std::make_unique<pipeline>();
+  m_pipeline = std::make_unique<pipeline>();
   m_framebuffer = std::make_unique<framebuffer>();
 
   m_command_pool = std::make_unique<command_pool>();
@@ -110,7 +110,7 @@ eng::vulkan_renderer::~vulkan_renderer() {
   m_command_pool.reset();
 
   m_framebuffer.reset();
-  m_graphics_pipeline.reset();
+  m_pipeline.reset();
   m_swap_chain.reset();
 
   for (std::unique_ptr<object> &obj : m_application.get_objects()) {
@@ -134,11 +134,11 @@ void eng::vulkan_renderer::initialize_rendering(
   m_swap_chain->create_swap_chain(*m_device, *m_surface, *m_window);
   m_swap_chain->create_image_views(*m_device);
 
-  m_graphics_pipeline->create_render_pass(*m_device, *m_swap_chain);
-  m_graphics_pipeline->create_descriptor_set_layout(*m_device);
-  m_graphics_pipeline->create_graphics_pipeline(*m_device, *m_swap_chain);
+  m_pipeline->create_render_pass(*m_device, *m_swap_chain);
+  m_pipeline->create_descriptor_set_layout(*m_device);
+  m_pipeline->create_graphics_pipeline(*m_device, *m_swap_chain);
 
-  m_framebuffer->create_framebuffers(*m_device, *m_swap_chain, *m_graphics_pipeline);
+  m_framebuffer->create_framebuffers(*m_device, *m_swap_chain, *m_pipeline);
 
   m_command_pool->create_command_pool(*m_device);
   m_command_pool->create_command_buffers(*m_device, MAX_FRAMES_IN_FLIGHT);
@@ -173,7 +173,7 @@ void eng::vulkan_renderer::initialize_rendering(
 
     obj->initialize_rendering(*m_device, *m_command_pool);
 
-    m_descriptor_pool->create_descriptor_set(*m_device, *m_graphics_pipeline, *ub);
+    m_descriptor_pool->create_descriptor_set(*m_device, *m_pipeline, *ub);
   }
 }
 
@@ -205,7 +205,7 @@ void eng::vulkan_renderer::render_frame() {
 
   VkRenderPassBeginInfo render_pass_info{};
   render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  render_pass_info.renderPass = m_graphics_pipeline->get_render_pass();
+  render_pass_info.renderPass = m_pipeline->get_render_pass();
   render_pass_info.framebuffer = m_framebuffer->get_framebuffer(image_index);
   render_pass_info.renderArea.offset = {0, 0};
   render_pass_info.renderArea.extent = m_swap_chain->get_extent();
@@ -218,7 +218,7 @@ void eng::vulkan_renderer::render_frame() {
                        VK_SUBPASS_CONTENTS_INLINE);
 
   vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    m_graphics_pipeline->get_pipeline());
+                    m_pipeline->get_pipeline());
 
   VkViewport viewport{};
   viewport.x = 0.0f, viewport.y = 0.0f;
@@ -232,14 +232,15 @@ void eng::vulkan_renderer::render_frame() {
   scissor.extent = m_swap_chain->get_extent();
   vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
+  const float aspect_ratio = static_cast<float>(scissor.extent.width) /
+                             static_cast<float>(scissor.extent.height);
+
   const glm::vec3 camera_pos = glm::vec3(0.0f, 0.0f, 3.0f);
   const glm::vec3 camera_target = glm::vec3(0.0f, 0.0f, 0.0f);
   const glm::vec3 up_vector = glm::vec3(0.0f, 1.0f, 0.0f);
 
   uniform_buffer_object ubo{};
-  ubo.proj =
-      glm::ortho(0.0f, static_cast<float>(scissor.extent.width), 0.0f,
-                 static_cast<float>(scissor.extent.height), 0.0f, 100.0f);
+  ubo.proj = glm::perspective(glm::radians(45.0f), aspect_ratio, 0.1f, 100.0f);
   ubo.view = glm::lookAt(camera_pos, camera_target, up_vector);
 
   size_t descriptor_set_index = 0;
@@ -262,7 +263,7 @@ void eng::vulkan_renderer::render_frame() {
     VkBuffer index_buffer = vb->get_index_buffer();
     vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
-    VkPipelineLayout pipeline_layout = m_graphics_pipeline->get_pipeline_layout();
+    VkPipelineLayout pipeline_layout = m_pipeline->get_pipeline_layout();
     VkDescriptorSet descriptor_set =
         m_descriptor_pool->get_descriptor_set(descriptor_set_index);
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -327,7 +328,7 @@ void eng::vulkan_renderer::render_frame() {
     m_swap_chain->create_swap_chain(*m_device, *m_surface, *m_window);
     m_swap_chain->create_image_views(*m_device);
 
-    m_framebuffer->create_framebuffers(*m_device, *m_swap_chain, *m_graphics_pipeline);
+    m_framebuffer->create_framebuffers(*m_device, *m_swap_chain, *m_pipeline);
 
   } else if (result != VK_SUCCESS) {
     throw std::runtime_error("failed to present swap chain image!");
@@ -341,7 +342,7 @@ void eng::vulkan_renderer::render_frame() {
 double eng::vulkan_renderer::delta_time() { return m_delta_time.count(); }
 
 void eng::vulkan_renderer::start_rendering(window_details &window_details) {
-  if (!m_graphics_pipeline->required_shaders_set()) {
+  if (!m_pipeline->required_shaders_set()) {
     std::cerr
         << "Vertex and Fragment Shaders Not Set! Set Shaders With "
            "application::set_shader(...) Before Calling application::start()"

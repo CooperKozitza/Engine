@@ -3,15 +3,15 @@
 eng::pipeline::pipeline()
     : m_device(VK_NULL_HANDLE), m_render_pass(VK_NULL_HANDLE),
       m_descriptor_set_layout(VK_NULL_HANDLE),
-      m_pipeline_layout(VK_NULL_HANDLE), m_graphics_pipeline(VK_NULL_HANDLE),
+      m_pipeline_layout(VK_NULL_HANDLE), m_pipeline(VK_NULL_HANDLE),
       m_shaders() {}
 
 eng::pipeline::~pipeline() {
   if (m_descriptor_set_layout != VK_NULL_HANDLE) {
     vkDestroyDescriptorSetLayout(m_device, m_descriptor_set_layout, nullptr);
   }
-  if (m_graphics_pipeline != VK_NULL_HANDLE) {
-    vkDestroyPipeline(m_device, m_graphics_pipeline, nullptr);
+  if (m_pipeline != VK_NULL_HANDLE) {
+    vkDestroyPipeline(m_device, m_pipeline, nullptr);
   }
   if (m_pipeline_layout != VK_NULL_HANDLE) {
     vkDestroyPipelineLayout(m_device, m_pipeline_layout, nullptr);
@@ -221,12 +221,9 @@ void eng::pipeline::create_graphics_pipeline(device &dev, swap_chain &sc) {
   pipeline_info.basePipelineIndex = -1;              // Optional
 
   if (vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_info,
-                                nullptr, &m_graphics_pipeline) != VK_SUCCESS) {
+                                nullptr, &m_pipeline) != VK_SUCCESS) {
     throw std::runtime_error("failed to create graphics pipeline!");
   }
-
-  (*vert_shader_pos)->destroy_shader_module();
-  (*frag_shader_pos)->destroy_shader_module();
 
   std::cout << "Created Graphics Pipeline" << std::endl;
 }

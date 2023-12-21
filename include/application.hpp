@@ -117,7 +117,7 @@ public:
   virtual void stop_rendering();
 
   void add_shader(const char *file_path, shader_type type) {
-    m_graphics_pipeline->add_shader(file_path, type);
+    m_pipeline->add_shader(file_path, type);
   }
 
 private:
@@ -130,7 +130,7 @@ private:
   std::unique_ptr<device> m_device;
 
   std::unique_ptr<swap_chain> m_swap_chain;
-  std::unique_ptr<pipeline> m_graphics_pipeline;
+  std::unique_ptr<pipeline> m_pipeline;
   std::unique_ptr<framebuffer> m_framebuffer;
 
   std::unique_ptr<command_pool> m_command_pool;

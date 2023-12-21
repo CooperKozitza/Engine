@@ -2,20 +2,19 @@
 
 class my_object : public eng::object {
   void start() {
-    std::vector<eng::vertex> verts = {{{-10.0f, -10.0f}, {1.0f, 0.0f, 0.0f}},
-                                      {{-10.0f, 10.0f}, {0.0f, 1.0f, 0.0f}},
-                                      {{10.0f, 10.0f}, {0.0f, 0.0f, 1.0f}},
-                                      {{10.0f, -10.0f}, {1.0f, 1.0f, 0.0f}}};
-    std::vector<uint16_t> indices = {0, 1, 3, 2};
-
-    set_position({50.0f, 50.0f, 1.0f});
+    std::vector<eng::vertex> verts = {{{-1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}},
+                                      {{-1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
+                                      {{1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+                                      {{1.0f, -1.0f}, {1.0f, 1.0f, 0.0f}}};
+    std::vector<uint16_t> indices = {1, 2, 3, 1, 3, 0};
 
     get_vertex_buffer()->set_vertices(verts);
     get_vertex_buffer()->set_indices(indices);
   }
 
   void update(double dt) {
-    
+    set_rotation(get_rotation() +
+                 glm::vec3{0.00001f * dt, 0.00001f * dt, 0.00001f * dt});
   }
 };
 

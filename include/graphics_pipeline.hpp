@@ -29,13 +29,13 @@ public:
     return m_descriptor_set_layout;
   }
   VkPipelineLayout &get_pipeline_layout() { return m_pipeline_layout; }
-  VkPipeline &get_pipeline() { return m_graphics_pipeline; }
+  VkPipeline &get_pipeline() { return m_pipeline; }
 
 private:
   VkRenderPass m_render_pass;
   VkDescriptorSetLayout m_descriptor_set_layout;
   VkPipelineLayout m_pipeline_layout;
-  VkPipeline m_graphics_pipeline;
+  VkPipeline m_pipeline;
 
   VkDevice m_device;
 
