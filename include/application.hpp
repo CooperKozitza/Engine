@@ -28,6 +28,8 @@
 namespace eng {
 class renderer;
 
+constexpr uint32_t DESCRIPTOR_POOL_OVERALLOCATION = 10;
+
 class application {
 public:
   static application &create(const glm::uvec2 &res, const char *title);

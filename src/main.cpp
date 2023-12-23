@@ -12,9 +12,18 @@ class my_object : public eng::object {
     get_vertex_buffer()->set_indices(indices);
   }
 
+  int a = 1;
+
   void update(double dt) {
-    set_rotation(get_rotation() +
-                 glm::vec3{0.00001f * dt, 0.00001f * dt, 0.00001f * dt});
+    if (dt == 0.0f)
+      return;
+
+    set_rotation(get_rotation() + glm::vec3{0.0f, 0.0f, 0.00001f * dt * a});
+
+    glm::vec3 r = get_rotation();
+    if (r.z > 10.0f || r.z < -10.0f) {
+      a *= -1;
+    }
   }
 };
 
@@ -22,9 +31,9 @@ int main() {
   eng::application &app = eng::application::create({800, 600}, "Test!");
 
   app.add_shader("C:/Users/coope/Documents/Engine/shaders/vert.spv",
-                  eng::VERTEX);
+                 eng::VERTEX);
   app.add_shader("C:/Users/coope/Documents/Engine/shaders/frag.spv",
-                  eng::FRAGMENT);
+                 eng::FRAGMENT);
 
   eng::object &obj = app.instantiate<my_object>();
 

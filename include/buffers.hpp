@@ -13,6 +13,7 @@
 
 namespace eng {
 struct command_buffer_options;
+class object;
 
 class command_pool {
 public:
@@ -64,11 +65,14 @@ public:
   vertex_buffer();
   ~vertex_buffer();
 
-  void create_vertex_buffer(device &dev, command_pool &cmd_buffs);
-  void create_index_buffer(device &dev, command_pool &cmd_buffs);
+  void create_vertex_buffer(device &dev, command_pool &cmd_pool);
+  void update_vertex_buffer(device &dev, command_pool &cmd_pool);
 
-  void set_vertices(std::vector<vertex> &vertices);
-  void set_indices(std::vector<uint16_t> &indices);
+  void create_index_buffer(device &dev, command_pool &cmd_pool);
+  void update_index_buffer(device &dev, command_pool &cmd_pool);
+
+  void set_vertices(const std::vector<vertex> &vertices);
+  void set_indices(const std::vector<uint16_t> &indices);
 
   VkBuffer &get_vertex_buffer() { return m_vertex_buffer; };
   VkBuffer &get_index_buffer() { return m_index_buffer; }
@@ -81,6 +85,8 @@ private:
 
   VkBuffer m_vertex_buffer;
   VkBuffer m_index_buffer;
+
+  size_t m_vertex_buffer_size, m_index_buffer_size;
 
   VkDeviceMemory m_vertex_buffer_memory;
   VkDeviceMemory m_index_buffer_memory;
@@ -97,7 +103,11 @@ public:
   ~descriptor_pool();
 
   void create_descriptor_pool(device &dev, uint32_t set_count);
-  void create_descriptor_set(device &dev, pipeline &gp, uniform_buffer &ub);
+
+  void create_descriptor_sets(device &dev, pipeline &gp,
+                              const std::vector<std::unique_ptr<object>> &objs);
+  void update_descriptor_sets(device &dev, pipeline &gp,
+                              const std::vector<std::unique_ptr<object>> &objs, uint32_t current_frame);
 
   std::vector<VkDescriptorSet> &get_descriptor_sets() {
     return m_descriptor_sets;

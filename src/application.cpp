@@ -145,7 +145,8 @@ void eng::vulkan_renderer::initialize_rendering(
 
   uint32_t object_count =
       static_cast<uint32_t>(m_application.get_object_count());
-  m_descriptor_pool->create_descriptor_pool(*m_device, object_count);
+  m_descriptor_pool->create_descriptor_pool(
+      *m_device, object_count + DESCRIPTOR_POOL_OVERALLOCATION);
 
   // synchronization object creation
 
@@ -169,23 +170,28 @@ void eng::vulkan_renderer::initialize_rendering(
   }
 
   for (std::unique_ptr<object> &obj : m_application.get_objects()) {
-    uniform_buffer *ub = obj->get_uniform_buffer();
-
     obj->initialize_rendering(*m_device, *m_command_pool);
-
-    m_descriptor_pool->create_descriptor_set(*m_device, *m_pipeline, *ub);
   }
+
+  m_descriptor_pool->create_descriptor_sets(*m_device, *m_pipeline,
+                                            m_application.get_objects());
 }
 
 void eng::vulkan_renderer::render_frame() {
   VkDevice device = m_device->get_device();
-  VkCommandBuffer command_buffer =
-      m_command_pool->get_command_buffer(m_current_frame);
 
   // wait for previous frame to finish by blocking execution
   vkWaitForFences(device, 1, &in_flight_fences[m_current_frame], VK_TRUE,
                   UINT64_MAX);
   vkResetFences(device, 1, &in_flight_fences[m_current_frame]);
+
+  VkCommandBuffer command_buffer =
+      m_command_pool->get_command_buffer(m_current_frame);
+
+  // update the descriptor sets for this frame to ensure uniform buffers are
+  // correctly represente in the gpu
+  m_descriptor_pool->update_descriptor_sets(
+      *m_device, *m_pipeline, m_application.get_objects(), m_current_frame);
 
   // get the image from the swap chain
   uint32_t image_index;
@@ -264,8 +270,9 @@ void eng::vulkan_renderer::render_frame() {
     vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
     VkPipelineLayout pipeline_layout = m_pipeline->get_pipeline_layout();
-    VkDescriptorSet descriptor_set =
-        m_descriptor_pool->get_descriptor_set(descriptor_set_index);
+    VkDescriptorSet descriptor_set = m_descriptor_pool->get_descriptor_set(
+        descriptor_set_index +
+        (m_current_frame * m_application.get_object_count()));
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
 
