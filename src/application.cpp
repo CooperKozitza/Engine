@@ -46,11 +46,28 @@ void eng::application::start() {
   m_renderer->start_rendering(m_window_details);
 
   m_update_thread = std::thread([this] {
+    using namespace std::chrono;
+
+    const auto desiredFrameTime = milliseconds(100) / 60; // 600 Hz
+
     while (is_running()) {
+      auto frameStartTime = high_resolution_clock::now();
+
       for (std::unique_ptr<object> &obj : m_objects) {
         obj->update(m_renderer->delta_time());
       }
+
+      auto frameEndTime = high_resolution_clock::now();
+      auto elapsedTime =
+          duration_cast<milliseconds>(frameEndTime - frameStartTime);
+      auto sleepTime = desiredFrameTime - elapsedTime;
+
+      if (sleepTime > milliseconds(0)) {
+        std::this_thread::sleep_for(sleepTime);
+      }
     }
+
+    m_is_running = false;
   });
 }
 
