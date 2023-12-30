@@ -52,6 +52,8 @@ public:
 
   bool is_running();
 
+  double delta_time() { return m_delta_time.count(); }
+
 private:
   application();
   static application app;
@@ -75,6 +77,9 @@ private:
   std::unique_ptr<renderer> m_renderer;
 
   std::vector<std::unique_ptr<object>> m_objects;
+
+  std::chrono::time_point<std::chrono::high_resolution_clock> m_last_update_end;
+  std::chrono::duration<double> m_delta_time;
 };
 
 class renderer {
@@ -145,7 +150,7 @@ private:
   std::vector<VkSemaphore> render_finished_semaphores;
   std::vector<VkFence> in_flight_fences;
 
-  std::chrono::time_point<std::chrono::high_resolution_clock> m_last_frame_end;
+  std::chrono::time_point<std::chrono::high_resolution_clock> m_last_update_end;
   std::chrono::duration<double> m_delta_time;
 };
 

@@ -46,24 +46,22 @@ void eng::application::start() {
   m_renderer->start_rendering(m_window_details);
 
   m_update_thread = std::thread([this] {
-    using namespace std::chrono;
-
-    const auto desiredFrameTime = milliseconds(100) / 60; // 600 Hz
+    const auto min_update_time = std::chrono::milliseconds(1000) / 900; // 900 Hz
 
     while (is_running()) {
-      auto frameStartTime = high_resolution_clock::now();
-
       for (std::unique_ptr<object> &obj : m_objects) {
-        obj->update(m_renderer->delta_time());
+        obj->update(m_delta_time.count());
       }
 
-      auto frameEndTime = high_resolution_clock::now();
-      auto elapsedTime =
-          duration_cast<milliseconds>(frameEndTime - frameStartTime);
-      auto sleepTime = desiredFrameTime - elapsedTime;
+      std::chrono::time_point<std::chrono::high_resolution_clock> now =
+          std::chrono::high_resolution_clock::now();
+      m_delta_time = now - m_last_update_end;
+      m_last_update_end = now;
 
-      if (sleepTime > milliseconds(0)) {
-        std::this_thread::sleep_for(sleepTime);
+      if (m_delta_time < min_update_time) {
+        auto sleep_time = min_update_time - m_delta_time;
+
+        std::this_thread::sleep_for(sleep_time);
       }
     }
 
@@ -105,7 +103,7 @@ eng::vulkan_renderer::vulkan_renderer() : renderer(), m_delta_time() {
   render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
   in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
 
-  m_last_frame_end = std::chrono::high_resolution_clock::now();
+  m_last_update_end = std::chrono::high_resolution_clock::now();
 }
 
 eng::vulkan_renderer::~vulkan_renderer() {
@@ -359,8 +357,8 @@ void eng::vulkan_renderer::render_frame() {
   }
 
   m_current_frame = (m_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
-  m_delta_time = std::chrono::high_resolution_clock::now() - m_last_frame_end;
-  m_last_frame_end = std::chrono::high_resolution_clock::now();
+  m_delta_time = std::chrono::high_resolution_clock::now() - m_last_update_end;
+  m_last_update_end = std::chrono::high_resolution_clock::now();
 }
 
 double eng::vulkan_renderer::delta_time() { return m_delta_time.count(); }
