@@ -32,8 +32,9 @@ void eng::window::initialize_rendering(const glm::uvec2 &res, const char *title)
 
   // use vulkan
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
   // make window not resizable
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+  // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
   m_window = glfwCreateWindow(res.x, res.y, title, nullptr, nullptr);
 }

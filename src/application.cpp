@@ -16,7 +16,9 @@ eng::application &eng::application::create(const glm::uvec2 &res,
   return app;
 }
 
-eng::application::application() : m_window_details(), m_name(), m_objects() {}
+eng::application::application()
+    : m_window_details(), m_name(), m_objects(), m_delta_time(),
+      m_last_update_end() {}
 
 void eng::application::initialize_rendering() {
   m_renderer = std::make_unique<vulkan_renderer>();
@@ -46,7 +48,8 @@ void eng::application::start() {
   m_renderer->start_rendering(m_window_details);
 
   m_update_thread = std::thread([this] {
-    const auto min_update_time = std::chrono::milliseconds(1000) / 900; // 900 Hz
+    const auto min_update_time =
+        std::chrono::milliseconds(1000) / 900; // 900 Hz
 
     while (is_running()) {
       for (std::unique_ptr<object> &obj : m_objects) {
@@ -59,7 +62,8 @@ void eng::application::start() {
       m_last_update_end = now;
 
       if (m_delta_time < min_update_time) {
-        auto sleep_time = min_update_time - m_delta_time;
+        std::chrono::duration<double, std::milli> sleep_time =
+            min_update_time - m_delta_time;
 
         std::this_thread::sleep_for(sleep_time);
       }
