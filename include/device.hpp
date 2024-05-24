@@ -9,6 +9,8 @@
 #include "surface.hpp"
 
 namespace eng {
+class command_pool;
+
 struct buffer_create_options {
   VkDeviceSize size;
   VkBufferUsageFlags usage;

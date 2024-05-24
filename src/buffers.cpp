@@ -138,8 +138,7 @@ void eng::vertex_buffer::create_vertex_buffer(device &dev,
 
   dev.create_buffer(vertex_buffer_opts);
 
-  VkCommandPool command_pool = cmd_pool.get_pool();
-  dev.copy_buffer(command_pool, staging_buffer, m_vertex_buffer, buffer_size);
+  dev.copy_buffer(cmd_pool, staging_buffer, m_vertex_buffer, buffer_size);
 
   vkDestroyBuffer(m_device, staging_buffer, nullptr);
   vkFreeMemory(m_device, staging_buffer_memory, nullptr);
@@ -199,8 +198,7 @@ void eng::vertex_buffer::create_index_buffer(device &dev,
 
   dev.create_buffer(opts);
 
-  VkCommandPool command_pool = cmd_pool.get_pool();
-  dev.copy_buffer(command_pool, staging_buffer, m_index_buffer, buffer_size);
+  dev.copy_buffer(cmd_pool, staging_buffer, m_index_buffer, buffer_size);
 
   vkDestroyBuffer(m_device, staging_buffer, nullptr);
   vkFreeMemory(m_device, staging_buffer_memory, nullptr);

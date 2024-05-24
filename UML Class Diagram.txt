@@ -1,0 +1,35 @@
+UML Class Diagram
+
++------------------------+       +------------------------------------+    +--------------------------+
+|    VulkanInstance      |<----->|   VulkanDevice                     |<-->|       VulkanWindow       |
++------------------------+       +------------------------------------+    +--------------------------+
+| - instance: VkInstance |       | - device: VkDevice                 |    | - window: GLFWwindow*    |
+|                        |       | - physicalDevice: VkPhysicalDevice |    |                          |
+| + createInstance()     |       |                                    |    | + initializeWindow()     |
+| + destroyInstance()    |       | + pickPhysicalDevice()             |    | + destroyWindow()        |
+|                        |       | + createLogicalDevice()            |    | + getFramebufferSize()   |
++------------------------+       | + destroyDevice()                  |    |                          |
+                                 +------------------------------------+    +--------------------------+
+                                                    |                                  |
+                                                    v                                  v
++-------------------------+       +----------------------------------------+   +---------------------------------------------+
+|      VulkanSurface      |<----->|             VulkanSwapChain            |<->|              VulkanFramebuffer              |
++-------------------------+       +----------------------------------------+   +---------------------------------------------+
+| - surface: VkSurfaceKHR |       | - swapChain: VkSwapchainKHR            |   | - framebuffers: std::vector<VkFramebuffer>  |
+|                         |       | - images: std::vector<VkImage>         |   |                                             |
+| + createSurface()       |       | - imageViews: std::vector<VkImageView> |   | + createFramebuffers()                      |
+| + destroySurface()      |       | + createSwapChain()                    |   | + destroyFramebuffers()                     |
+|                         |       | + destroySwapChain()                   |   |                                             |
+|                         |       | + recreateSwapChain()                  |   |                                             |
++-------------------------+       +----------------------------------------+   +---------------------------------------------+
+         |                                          |             
+         v                                          v
++--------------------------------+   +-------------------------------------+
+|         VulkanShader           |<->|        VulkanGraphicsPipeline       |
++--------------------------------+   +-------------------------------------+
+| - shaderModule: VkShaderModule |   | - pipeline: VkPipeline              |
+|                                |   | - pipelineLayout: VkPipelineLayout  |
+| + createShaderModule()         |   |                                     |
+| + destroyShaderModule()        |   | + createGraphicsPipeline()          |
+|                                |   | + destroyGraphicsPipeline()         |
++--------------------------------+   +-------------------------------------+
