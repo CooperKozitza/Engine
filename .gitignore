@@ -1,0 +1,62 @@
+# Build directories
+build/
+bin/
+lib/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.cmake.generated
+
+# Compiled object files, libraries, executables
+*.o
+*.obj
+*.lo
+*.iol
+*.la
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# Generated symbol/debug files
+*.pdb
+*.pch
+*.ipch
+*.rsp
+
+# Common temporary files
+*.tmp
+*.log
+*.swp
+*.swo
+*.bak
+*.old
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor and IDE directories
+.vscode/
+.idea/
+*.user
+*.sln
+*.vcxproj*
+*.xcodeproj
+*.sublime-project
+*.sublime-workspace
+
+# Other: If you have external libraries as submodules that you build locally,
+# you can ignore their build directories specifically.
+# For example:
+external/glfw/build/
+external/glm/build/
+
+# If you generate a documentation set or have other local artifacts, ignore them too.
+docs/generated/
