@@ -1,3 +1,7 @@
+.cache/
+
+Makefile
+
 # Build directories
 build/
 bin/

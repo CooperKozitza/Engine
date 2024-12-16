@@ -29,7 +29,8 @@ endif()
 
 set(SRC_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/device.cpp"
- "src/instance.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/instance.cpp"
+)
 
 add_library(eng ${SRC_FILES})
 
@@ -63,7 +64,7 @@ install(EXPORT eng-targets
 )
 
 if(BUILD_TEST_EXECUTABLE)
-    add_executable(test "${CMAKE_CURRENT_SOURCE_DIR}/test/main.cpp")
+    add_executable(test "${CMAKE_CURRENT_SOURCE_DIR}/tests/main.cpp")
     target_link_libraries(test PRIVATE eng)
     target_include_directories(test
         PUBLIC

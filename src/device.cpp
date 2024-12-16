@@ -1,23 +1,18 @@
 #include "../include/device.hpp"
 
 #include <map>
+#include <utility>
 
-eng::result<VkPhysicalDevice> eng::device::pick_physical_device(eng::instance instance) {
-    if (!instance.valid()) {
-        return eng::result<VkPhysicalDevice>::error("Instance is not valid.");
-    }
-
-    VkInstance vulkan_instance = instance.get_vulkan_instance();
-
+eng::result<VkPhysicalDevice> eng::device::pick_physical_device(VkInstance instance) {
     uint32_t device_count = 0;
-    vkEnumeratePhysicalDevices(vulkan_instance, &device_count, nullptr);
+    vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
 
     if (device_count == 0) {
         return eng::result<VkPhysicalDevice>::error("No devices found with Vulkan support.");
     }
 
     std::vector<VkPhysicalDevice> physical_devices(device_count);
-    vkEnumeratePhysicalDevices(vulkan_instance, &device_count, physical_devices.data());
+    vkEnumeratePhysicalDevices(instance, &device_count, physical_devices.data());
 
     std::multimap<int, VkPhysicalDevice> candidates;
 
@@ -136,6 +131,48 @@ int eng::device::rate_device_suitability(VkPhysicalDevice physical_device) {
     return score;
 }
 
-eng::device::device() : physical_device_handle(VK_NULL_HANDLE), logical_device_handle(VK_NULL_HANDLE) {}
+eng::device::device() : logical_device_handle(VK_NULL_HANDLE) {}
 
-eng::device::device(VkPhysicalDevice physical_device_handle)
+eng::device::device(VkPhysicalDevice physical_device_handle, VkDevice logical_device_handle) 
+    : logical_device_handle(logical_device_handle) {}
+
+eng::device::~device() {
+    if (logical_device_handle != VK_NULL_HANDLE) {
+        vkDestroyDevice(logical_device_handle, nullptr);
+    }
+}
+
+eng::device::device(eng::device&& other) noexcept
+    : logical_device_handle(std::exchange(other.logical_device_handle, VK_NULL_HANDLE)) {}
+
+eng::device& eng::device::operator=(eng::device&& other) noexcept {
+    if (this != &other) {
+        if (logical_device_handle != VK_NULL_HANDLE) {
+            vkDestroyDevice(logical_device_handle, nullptr);
+        }
+
+        logical_device_handle = std::exchange(other.logical_device_handle, VK_NULL_HANDLE);
+    }
+
+    return *this;
+}
+
+eng::result<eng::device> eng::device::create_device(eng::instance instance, bool debug_layers) {
+    if (!instance.valid()) {
+        return eng::result<eng::device>::error("Invalid instance.");
+    }
+
+    eng::result<VkPhysicalDevice> physical_device_result = pick_physical_device(instance.get_vulkan_instance());
+
+    if (physical_device_result.is_error()) {
+        return eng::result<eng::device>::error(physical_device_result.error_message());
+    }
+
+    eng::result<VkDevice> logical_device_result = create_logical_device(physical_device_result.unwrap(), debug_layers);
+
+    if (logical_device_result.is_error()) {
+        return eng::result<eng::device>::error(logical_device_result.error_message());
+    }
+
+    return eng::result<eng::device>::success(device(physical_device_result.unwrap(), logical_device_result.unwrap()));
+}

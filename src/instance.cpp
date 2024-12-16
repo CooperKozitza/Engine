@@ -1,5 +1,7 @@
 #include "../include/instance.hpp"
 
+#include <cstring>
+
 eng::result<eng::instance> eng::instance::create_instance(const char* application_name, bool debug_layers) {
     if (debug_layers && !check_validation_layer_support()) {
         return eng::result<eng::instance>::error("Validation layers requested but not available.");
