@@ -34,7 +34,7 @@ namespace eng {
         static result<VkPhysicalDevice> pick_physical_device(VkInstance instance);
         static result<VkDevice> create_logical_device(VkPhysicalDevice physical_device, bool debug_layers = false);
 
-        static queue_family_indices find_queue_families(VkPhysicalDevice physical_device);
+        static result<queue_family_indices> find_queue_families(VkPhysicalDevice physical_device);
 
         static bool is_device_suitable(VkPhysicalDevice physical_device);
         static int rate_device_suitability(VkPhysicalDevice physical_device);

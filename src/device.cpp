@@ -4,6 +4,10 @@
 #include <utility>
 
 eng::result<VkPhysicalDevice> eng::device::pick_physical_device(VkInstance instance) {
+    if (instance == VK_NULL_HANDLE) {
+        return eng::result<VkPhysicalDevice>::error("Invalid Vulkan instance.");
+    }
+
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
 
@@ -23,7 +27,7 @@ eng::result<VkPhysicalDevice> eng::device::pick_physical_device(VkInstance insta
         }
     }
 
-    if (candidates.begin()->first > 0) {
+    if (candidates.size() > 0 && candidates.begin()->first > 0) {
         return eng::result<VkPhysicalDevice>::success(candidates.begin()->second);
     }
 
@@ -31,7 +35,18 @@ eng::result<VkPhysicalDevice> eng::device::pick_physical_device(VkInstance insta
 }
 
 eng::result<VkDevice> eng::device::create_logical_device(VkPhysicalDevice physical_device, bool debug_layers) {
-    queue_family_indices indices = find_queue_families(physical_device);
+    if (physical_device == VK_NULL_HANDLE) {
+        return eng::result<VkDevice>::error("Invalid Vulkan instance.");
+    }
+
+    eng::result<eng::device::queue_family_indices> indices_result = find_queue_families(physical_device);
+
+    if (indices_result.is_error()) {
+        std::string error_message = "Error while finding queue indices: " + std::string(indices_result.error_message());
+        return eng::result<VkDevice>::error(error_message.c_str());
+    }
+
+    eng::device::queue_family_indices indices = indices_result.unwrap();
 
     VkDeviceQueueCreateInfo queue_create_info{};
     queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -70,7 +85,11 @@ eng::result<VkDevice> eng::device::create_logical_device(VkPhysicalDevice physic
     return eng::result<VkDevice>::error("Failed to create logical device.");
 }
 
-eng::device::queue_family_indices eng::device::find_queue_families(VkPhysicalDevice physical_device) {
+eng::result<eng::device::queue_family_indices> eng::device::find_queue_families(VkPhysicalDevice physical_device) {
+    if (physical_device == VK_NULL_HANDLE) {
+        return eng::result<eng::device::queue_family_indices>::error("Invalid Vulkan instance.");
+    }
+
     eng::device::queue_family_indices indices;
 
     uint32_t queue_family_count = 0;
@@ -92,24 +111,36 @@ eng::device::queue_family_indices eng::device::find_queue_families(VkPhysicalDev
         ++index;
     }
 
-    return indices;
+    return eng::result<eng::device::queue_family_indices>::success(indices);
 }
 
 bool eng::device::is_device_suitable(VkPhysicalDevice physical_device) {
+    if (physical_device == VK_NULL_HANDLE) {
+        throw std::invalid_argument("Invalid Vulkan instance.");
+    }
+
     VkPhysicalDeviceProperties physical_device_properties;
     vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
 
     VkPhysicalDeviceFeatures physical_device_features;
     vkGetPhysicalDeviceFeatures(physical_device, &physical_device_features);
 
-    eng::device::queue_family_indices indices = find_queue_families(physical_device);
+    eng::result<eng::device::queue_family_indices> indices = find_queue_families(physical_device);
+
+    if (indices.is_error()) {
+        return false;
+    }
 
     return physical_device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
         && physical_device_features.geometryShader
-        && indices.complete();
+        && indices.unwrap().complete();
 }
 
 int eng::device::rate_device_suitability(VkPhysicalDevice physical_device) {
+    if (physical_device == VK_NULL_HANDLE) {
+        throw std::invalid_argument("Invalid Vulkan instance.");
+    }
+
     VkPhysicalDeviceProperties physical_device_properties;
     vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
 
