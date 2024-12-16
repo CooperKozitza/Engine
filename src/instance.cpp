@@ -2,9 +2,13 @@
 
 #include <cstring>
 
-eng::result<eng::instance> eng::instance::create_instance(const char* application_name, bool debug_layers) {
+eng::result<eng::instance> eng::instance::create_instance(const char* application_name, GLFWwindow* window, bool debug_layers) {
     if (debug_layers && !check_validation_layer_support()) {
         return eng::result<eng::instance>::error("Validation layers requested but not available.");
+    }
+
+    if (window == nullptr) {
+        return eng::result<eng::instance>::error("Invalid window.");
     }
 
     VkApplicationInfo application_info{};
@@ -32,27 +36,40 @@ eng::result<eng::instance> eng::instance::create_instance(const char* applicatio
         create_info.enabledLayerCount = 0;
     }
 
-    VkInstance handle = VK_NULL_HANDLE;
-    if (vkCreateInstance(&create_info, nullptr, &handle) != VK_SUCCESS) {
+    VkInstance instance_handle = VK_NULL_HANDLE;
+    if (vkCreateInstance(&create_info, nullptr, &instance_handle) != VK_SUCCESS) {
         return eng::result<eng::instance>::error("Failed to create instance.");
     }
 
-    return eng::result<eng::instance>::success(instance(handle, application_info));
+    VkSurfaceKHR surface_handle = VK_NULL_HANDLE;
+    if (glfwCreateWindowSurface(instance_handle, window, nullptr, &surface_handle) != VK_SUCCESS) {
+        vkDestroyInstance(instance_handle, nullptr);
+
+        return eng::result<eng::instance>::error("Failed to create window surface.");
+    }
+
+    return eng::result<eng::instance>::success(instance(instance_handle, application_info, surface_handle));
 }
 
 eng::instance::instance() : instance_handle(VK_NULL_HANDLE), application_info() {}
 
-eng::instance::instance(VkInstance instance_handle, VkApplicationInfo application_info)
-    : instance_handle(instance_handle), application_info(application_info) {}
+eng::instance::instance(VkInstance instance_handle, VkApplicationInfo application_info, VkSurfaceKHR surface)
+    : instance_handle(instance_handle), application_info(application_info), surface_handle(surface) {}
 
 eng::instance::~instance() {
     if (instance_handle != VK_NULL_HANDLE) {
+        if (surface_handle != VK_NULL_HANDLE) {
+            vkDestroySurfaceKHR(instance_handle, surface_handle, nullptr);
+        }
+
         vkDestroyInstance(instance_handle, nullptr);
     }
 }
 
 eng::instance::instance(instance&& other) noexcept
-    : instance_handle(std::exchange(other.instance_handle, VK_NULL_HANDLE)), application_info(other.application_info) {}
+    : instance_handle(std::exchange(other.instance_handle, VK_NULL_HANDLE)),
+    surface_handle(std::exchange(other.surface_handle, VK_NULL_HANDLE)),
+    application_info(other.application_info) {}
 
 eng::instance& eng::instance::operator=(instance&& other) noexcept {
     if (this != &other) {
@@ -61,6 +78,7 @@ eng::instance& eng::instance::operator=(instance&& other) noexcept {
         }
 
         instance_handle = std::exchange(other.instance_handle, VK_NULL_HANDLE);
+        surface_handle = std::exchange(other.surface_handle, VK_NULL_HANDLE);
         application_info = other.application_info;
     }
 

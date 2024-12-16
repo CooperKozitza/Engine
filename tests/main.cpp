@@ -20,7 +20,7 @@ int main() {
     // try to create a instance and device
 
     std::cout << "Creating instance!\n";
-    eng::result<eng::instance> instance = eng::instance::create_instance("Vulkan", true);
+    eng::result<eng::instance> instance = eng::instance::create_instance("Vulkan", window, true);
 
     if (instance.is_error()) {
         std::cerr << "Failed to create instance: " << instance.error_message() << '\n';
@@ -28,7 +28,7 @@ int main() {
     }
 
     std::cout << "Creating device!\n";
-    eng::result<eng::device> device = eng::device::create_device(instance.unwrap(), true);
+    eng::result<eng::device> device = eng::device::create_device(instance.unwrap(), window, true);
 
     if (device.is_error()) {
         std::cerr << "Failed to create device: " << device.error_message() << '\n';

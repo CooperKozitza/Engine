@@ -12,7 +12,7 @@ namespace eng {
 
     class instance {
     public:
-        static result<instance> create_instance(const char* application_name, bool debug_layers = false);
+        static result<instance> create_instance(const char* application_name, GLFWwindow* window, bool debug_layers = false);
 
         instance();
         ~instance();
@@ -27,12 +27,14 @@ namespace eng {
 
         VkInstance get_vulkan_instance() const { return instance_handle; }
         VkApplicationInfo get_vulkan_application_info() const { return application_info; }
+        VkSurfaceKHR get_vulkan_surface() const { return surface_handle; }
     private:
-        instance(VkInstance instance_handle, VkApplicationInfo application_info);
+        instance(VkInstance instance_handle, VkApplicationInfo application_info, VkSurfaceKHR surface);
 
         static bool check_validation_layer_support();
 
         VkInstance instance_handle;
         VkApplicationInfo application_info;
+        VkSurfaceKHR surface_handle;
     };
 }
