@@ -157,7 +157,7 @@ eng::device& eng::device::operator=(eng::device&& other) noexcept {
     return *this;
 }
 
-eng::result<eng::device> eng::device::create_device(eng::instance instance, bool debug_layers) {
+eng::result<eng::device> eng::device::create_device(eng::instance& instance, bool debug_layers) {
     if (!instance.valid()) {
         return eng::result<eng::device>::error("Invalid instance.");
     }

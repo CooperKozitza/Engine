@@ -8,7 +8,7 @@
 namespace eng {
     class device {
     public:
-        static result<device> create_device(instance instance, bool debug_layers = false);
+        static result<device> create_device(instance& instance, bool debug_layers = false);
 
         device();
         ~device();

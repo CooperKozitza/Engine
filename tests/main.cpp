@@ -6,6 +6,8 @@
 
 #include <iostream>
 
+#include "device.hpp"
+
 int main() {
     glfwInit();
 
@@ -14,6 +16,24 @@ int main() {
 
     uint32_t extensionCount = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+
+    // try to create a instance and device
+
+    std::cout << "Creating instance!\n";
+    eng::result<eng::instance> instance = eng::instance::create_instance("Vulkan", true);
+
+    if (instance.is_error()) {
+        std::cerr << "Failed to create instance: " << instance.error_message() << '\n';
+        return 1;
+    }
+
+    std::cout << "Creating device!\n";
+    eng::result<eng::device> device = eng::device::create_device(instance.unwrap(), true);
+
+    if (device.is_error()) {
+        std::cerr << "Failed to create device: " << device.error_message() << '\n';
+        return 1;
+    }
 
     std::cout << extensionCount << " extensions supported\n";
 
