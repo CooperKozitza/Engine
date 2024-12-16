@@ -44,6 +44,7 @@ Thumbs.db
 
 # Editor and IDE directories
 .vscode/
+.vs/
 .idea/
 *.user
 *.sln

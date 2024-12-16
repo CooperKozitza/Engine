@@ -29,7 +29,7 @@ endif()
 
 set(SRC_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/device.cpp"
-)
+ "src/instance.cpp")
 
 add_library(eng ${SRC_FILES})
 
